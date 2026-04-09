@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agency Sales OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#fff;--bg2:#f7f8f5;--bg3:#f0f2ed;
+  --bd:#e4e8df;--bd2:#cdd4c6;
+  --tx:#1a1f17;--tx2:#5a6654;--tx3:#9aa890;
+  --ac:#1e9e5e;--acl:#e8f7ef;--acm:#a8dfc0;--acd:#157a48;
+  --am:#d97706;--aml:#fef3c7;
+  --rd:#dc2626;--rdl:#fee2e2;
+  --bl:#2563eb;--bll:#eff6ff;
+  --pu:#7c3aed;--pul:#f5f3ff;
+}
+html,body{height:100%;background:var(--bg2);color:var(--tx);font-family:Arial,Helvetica,sans-serif;font-size:13px;}
+h1,h2,h3{font-family:'Libre Baskerville',Georgia,serif;}
+button{cursor:pointer;font-family:Arial,Helvetica,sans-serif;}
+input,select,textarea{font-family:Arial,Helvetica,sans-serif;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg3);}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:54px;border-bottom:1px solid var(--bd);background:var(--bg);flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.brand{display:flex;align-items:center;gap:9px;}
+.brand h1{font-size:15px;font-weight:700;color:var(--tx);}
+.brand-dot{width:8px;height:8px;border-radius:50%;background:var(--ac);}
+.nav-tabs{display:flex;gap:2px;overflow-x:auto;}
+.tab{padding:5px 11px;border-radius:7px;font-size:11px;color:var(--tx2);border:none;background:transparent;font-weight:500;transition:all .15s;white-space:nowrap;}
+.tab:hover{background:var(--bg2);color:var(--tx);}
+.tab.on{background:var(--acl);color:var(--acd);border:1px solid var(--acm);font-weight:600;}
+.live{background:var(--acl);color:var(--acd);font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid var(--acm);font-weight:600;white-space:nowrap;}
+.content{flex:1;overflow-y:auto;padding:22px;background:var(--bg2);}
+.chat-content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── CARDS ── */
+.card{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.ct{font-size:13px;font-weight:700;color:var(--tx);display:flex;align-items:center;gap:6px;margin-bottom:13px;}
+
+/* ── METRIC GRID ── */
+.mg{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:16px;}
+.mc{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,.03);}
+.ml{font-size:11px;color:var(--tx2);margin-bottom:5px;font-weight:500;}
+.mv{font-family:'Libre Baskerville',Georgia,serif;font-size:24px;color:var(--tx);line-height:1;}
+.ms{font-size:11px;color:var(--tx3);margin-top:4px;}
+.ms.up{color:var(--ac);}
+.ms.wn{color:var(--am);}
+.pb{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:6px;}
+.pf{height:100%;border-radius:3px;background:var(--ac);}
+
+/* ── TABLE ── */
+.dt{width:100%;border-collapse:collapse;}
+.dt th{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;padding:8px 11px;text-align:left;border-bottom:1px solid var(--bd);font-weight:700;background:var(--bg2);}
+.dt td{padding:9px 11px;border-bottom:1px solid var(--bd);font-size:12px;color:var(--tx);vertical-align:middle;}
+.dt tr:last-child td{border-bottom:none;}
+.dt tr:hover td{background:var(--bg2);}
+
+/* ── PILLS ── */
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.p-new{background:var(--bll);color:var(--bl);}
+.p-working{background:var(--aml);color:var(--am);}
+.p-booked{background:var(--acl);color:var(--acd);}
+.p-won{background:var(--acl);color:var(--acd);border:1px solid var(--acm);}
+.p-lost{background:var(--rdl);color:var(--rd);}
+.p-disq{background:var(--bg3);color:var(--tx3);}
+.p-call{background:#ecfeff;color:#0891b2;}
+.p-email{background:var(--bll);color:var(--bl);}
+.p-li{background:var(--pul);color:var(--pu);}
+.p-dk{background:var(--aml);color:var(--am);}
+.p-mtg{background:var(--acl);color:var(--acd);}
+.p-a{background:var(--acl);color:var(--acd);border:1px solid var(--acm);}
+.p-b{background:var(--aml);color:var(--am);}
+.p-c{background:var(--bg3);color:var(--tx2);}
+.p-dup{background:var(--rdl);color:var(--red);}
+.seg-a{color:var(--acd);font-weight:700;}
+.seg-b{color:var(--am);font-weight:700;}
+.seg-c{color:var(--tx3);font-weight:700;}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 15px;border-radius:8px;font-size:12px;border:none;font-weight:600;transition:all .15s;}
+.btn-p{background:var(--ac);color:#fff;}
+.btn-p:hover{background:var(--acd);}
+.btn-p:disabled{background:var(--bg3);color:var(--tx3);cursor:not-allowed;}
+.btn-s{background:var(--bg);color:var(--tx);border:1px solid var(--bd2);}
+.btn-s:hover{border-color:var(--ac);color:var(--acd);}
+.btn-ok{background:var(--acl);color:var(--acd);border:1px solid var(--acm);}
+.btn-ok:hover{background:var(--acm);}
+.btn-ai{background:var(--pul);color:var(--pu);border:1px solid #ddd6fe;}
+.btn-ai:hover{background:#ede9fe;}
+.btn-sm{padding:4px 9px;font-size:11px;}
+
+/* ── FORMS ── */
+.sh2{font-family:'Libre Baskerville',Georgia,serif;font-size:19px;color:var(--tx);margin-bottom:3px;}
+.sub{font-size:12px;color:var(--tx2);margin-bottom:16px;}
+.fb{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
+.fr{display:flex;align-items:center;gap:9px;}
+.fld{display:flex;flex-direction:column;gap:4px;}
+.flbl{font-size:10px;color:var(--tx2);text-transform:uppercase;letter-spacing:.7px;font-weight:700;}
+.finp,.fsel{background:var(--bg);border:1px solid var(--bd2);border-radius:8px;color:var(--tx);padding:7px 9px;font-size:12px;outline:none;width:100%;}
+.finp:focus,.fsel:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(30,158,94,.1);}
+.ftxt{background:var(--bg);border:1px solid var(--bd2);border-radius:8px;color:var(--tx);padding:8px 10px;font-size:12px;outline:none;width:100%;resize:vertical;min-height:90px;line-height:1.55;}
+.ftxt:focus{border-color:var(--ac);}
+
+/* ── PIPELINE KANBAN ── */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;}
+.kcol{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:10px;min-height:100px;transition:background .15s;}
+.kcol.drag-over{background:var(--acl);border-color:var(--acm);}
+.kcol-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--tx2);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.kb{background:var(--bg2);border:1px solid var(--bd);border-radius:9px;padding:10px;margin-bottom:6px;cursor:grab;transition:all .15s;user-select:none;}
+.kb:hover{border-color:var(--acm);background:var(--acl);}
+.kb.dragging{opacity:.35;cursor:grabbing;}
+.kbn{font-size:12px;font-weight:700;color:var(--tx);margin-bottom:2px;}
+.kbs{font-size:10px;color:var(--tx2);}
+.kba{font-size:11px;color:var(--acd);margin-top:5px;font-weight:700;}
+.kbc{font-size:10px;color:var(--pu);margin-top:2px;}
+.kbadge{background:var(--bg2);border:1px solid var(--bd);border-radius:20px;padding:1px 6px;font-size:10px;color:var(--tx3);font-weight:600;}
+
+/* ── CHAT ── */
+.chat-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden;height:100%;}
+.chat-header{padding:16px 22px 12px;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--bg);}
+.chat-header h2{font-family:'Libre Baskerville',Georgia,serif;font-size:16px;color:var(--tx);}
+.chat-header p{font-size:12px;color:var(--tx2);margin-top:3px;}
+.chips{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap;}
+.chip{background:var(--bg2);border:1px solid var(--bd2);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--tx2);cursor:pointer;font-weight:500;}
+.chip:hover{border-color:var(--ac);color:var(--acd);background:var(--acl);}
+.msgs{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:12px;background:var(--bg2);}
+.msg{display:flex;gap:10px;max-width:84%;}
+.msg.u{align-self:flex-end;flex-direction:row-reverse;}
+.msg.a{align-self:flex-start;}
+.av{width:27px;height:27px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.av.ai{background:var(--acl);border:1px solid var(--acm);}
+.av.u{background:var(--bg3);border:1px solid var(--bd2);}
+.bub{padding:10px 14px;border-radius:13px;font-size:13px;line-height:1.55;}
+.bub.ai{background:var(--bg);border:1px solid var(--bd);border-radius:13px 13px 13px 3px;color:var(--tx);}
+.bub.u{background:var(--ac);border-radius:13px 13px 3px 13px;color:#fff;}
+.lcard{background:var(--bg2);border:1px solid var(--bd);border-radius:9px;padding:10px 13px;margin-top:8px;font-size:12px;min-width:220px;}
+.lct{font-weight:700;color:var(--acd);margin-bottom:6px;font-size:12px;}
+.lr{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--bd);}
+.lr:last-child{border-bottom:none;}
+.lk{color:var(--tx2);}
+.lv{color:var(--tx);font-weight:600;}
+.typing{display:flex;gap:4px;align-items:center;padding:4px 0;}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--tx3);animation:tb 1.2s infinite;display:block;}
+.typing span:nth-child(2){animation-delay:.2s;}
+.typing span:nth-child(3){animation-delay:.4s;}
+@keyframes tb{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.input-area{padding:13px 22px;border-top:1px solid var(--bd);background:var(--bg);flex-shrink:0;}
+.input-wrap{display:flex;gap:10px;align-items:flex-end;background:var(--bg2);border:1px solid var(--bd2);border-radius:12px;padding:8px 11px;transition:border-color .15s;}
+.input-wrap:focus-within{border-color:var(--ac);box-shadow:0 0 0 3px rgba(30,158,94,.1);}
+.itx{flex:1;background:transparent;border:none;outline:none;color:var(--tx);font-size:13px;resize:none;min-height:22px;max-height:100px;line-height:1.5;}
+.itx::placeholder{color:var(--tx3);}
+.send-btn{background:var(--ac);border:none;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:#fff;font-size:14px;transition:background .15s;}
+.send-btn:hover{background:var(--acd);}
+.send-btn:disabled{background:var(--bg3);color:var(--tx3);cursor:not-allowed;}
+.hint{font-size:10px;color:var(--tx3);margin-top:6px;text-align:center;}
+
+/* ── CADENCE ── */
+.cd-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 13px;margin-bottom:7px;}
+.cd-name{font-size:12px;font-weight:700;color:var(--tx);min-width:150px;}
+.cd-dots{display:flex;gap:3px;flex:1;}
+.ddot{width:23px;height:23px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;}
+.dd{background:var(--acl);color:var(--acd);border:1px solid var(--acm);}
+.df{background:var(--bg2);color:var(--tx3);border:1px solid var(--bd);}
+.cp-plan{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;}
+.cp-item{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:9px;}
+.cp-day{color:var(--acd);font-weight:700;font-size:11px;margin-bottom:4px;}
+.cp-act{color:var(--tx2);font-size:10px;line-height:1.5;}
+
+/* ── CSV IMPORT ── */
+.uz{border:2px dashed var(--bd2);border-radius:14px;padding:48px 32px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--bg);}
+.uz:hover{border-color:var(--ac);background:var(--acl);}
+.ai-proc{display:flex;align-items:center;gap:10px;background:var(--acl);border:1px solid var(--acm);border-radius:10px;padding:14px 16px;margin-bottom:14px;}
+.spinner{width:18px;height:18px;border:2px solid var(--acm);border-top-color:var(--ac);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.proc-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.proc-fill{height:100%;background:var(--ac);border-radius:2px;animation:pfill 1.2s ease-in-out infinite;}
+@keyframes pfill{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+.sbar{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:16px;}
+.sbox{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:13px 15px;}
+.sbl{font-size:11px;color:var(--tx2);margin-bottom:4px;font-weight:500;}
+.sbv{font-family:'Libre Baskerville',Georgia,serif;font-size:22px;color:var(--tx);}
+.sbv.g{color:var(--acd);}
+.sbv.am{color:var(--am);}
+
+/* ── SCRIPTS ── */
+.script-card{background:var(--bg);border:1px solid var(--bd);border-radius:11px;padding:14px;margin-bottom:10px;}
+.script-copy{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--tx);line-height:1.65;white-space:pre-wrap;margin-top:12px;}
+.ch-filter{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.ch-btn{padding:4px 12px;border-radius:20px;font-size:11px;border:1px solid var(--bd2);background:var(--bg);color:var(--tx2);cursor:pointer;font-weight:500;}
+.ch-btn.on{background:var(--acl);border-color:var(--acm);color:var(--acd);font-weight:600;}
+.badge-win{background:var(--acl);color:var(--acd);border:1px solid var(--acm);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;}
+.badge-kill{background:var(--rdl);color:var(--rd);border:1px solid #fca5a5;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;}
+
+/* ── COMMISSION ── */
+.comm-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;}
+
+/* ── REPORT ── */
+.rw{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px;min-height:70px;}
+.rt{font-size:13px;color:var(--tx);line-height:1.8;white-space:pre-wrap;}
+.rflag{display:flex;align-items:flex-start;gap:10px;border-radius:10px;padding:11px 14px;margin-bottom:8px;border:1px solid;}
+.rflag.r{background:var(--rdl);border-color:#fca5a5;}
+.rflag.w{background:var(--aml);border-color:#fcd34d;}
+.rflag.g{background:var(--acl);border-color:var(--acm);}
+.rft{font-size:12px;color:var(--tx);line-height:1.5;}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ac);animation:pu 1s ease-in-out infinite;margin-right:5px;}
+@keyframes pu{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
+/* ── MODAL ── */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1000;display:flex;align-items:center;justify-content:center;}
+.mbox{background:var(--bg);border:1px solid var(--bd);border-radius:15px;padding:22px;width:520px;max-width:95vw;box-shadow:0 20px 50px rgba(0,0,0,.12);max-height:90vh;overflow-y:auto;}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.mh h2{font-family:'Libre Baskerville',Georgia,serif;font-size:16px;}
+.mc2{background:none;border:none;color:var(--tx2);font-size:18px;cursor:pointer;}
+.aibadge{display:inline-flex;align-items:center;gap:4px;background:var(--pul);border:1px solid #ddd6fe;border-radius:20px;padding:2px 9px;font-size:10px;color:var(--pu);font-weight:600;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg);border:1px solid var(--bd);border-left:3px solid var(--ac);border-radius:10px;padding:11px 16px;font-size:12px;color:var(--tx);z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.08);}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+// AGENCY SALES OS — Single File Version
+// Edit anything below to customise
+// ─────────────────────────────────────────────
+
+// ── CONFIG — change these to match your agency ──
+const AGENCY_NAME = 'Agency Sales OS';       // Top left branding
+const DEAL_AMOUNT = 6900;                    // Default deal value £
+const COMM_RATE   = 0.07;                    // Commission rate (0.07 = 7%)
+const TARGET_ACTIONS = 100;                  // Daily activity target
+const TARGET_MEETINGS = 6;                   // Weekly meeting target
+const LOCATION    = 'Belfast';               // For lead segmentation
+const CURRENCY    = '£';                     // Currency symbol
+
+// ── HELPERS ──
+const {useState,useEffect,useRef,useCallback} = React;
+const h = React.createElement;
+const TODAY = () => new Date().toISOString().split('T')[0];
+const FMT = n => CURRENCY + Math.round(n).toLocaleString('en-GB');
+
+// ── CONSTANTS ──
+const STAGES = ['Discovery scheduled','On-site booked','Proposal given','Won','Lost'];
+const SE = {'Discovery scheduled':'📞','On-site booked':'📅','Proposal given':'📄','Won':'🏆','Lost':'❌'};
+const AI_ICONS = {Call:'📞',Voicemail:'📞',Email:'📧',LinkedIn:'💼',Text:'💬','Door Knock':'🚪',Meeting:'🤝'};
+const APILL = {Call:'call',Voicemail:'call',Email:'email',LinkedIn:'li',Text:'call','Door Knock':'dk',Meeting:'mtg'};
+const SPILL = {New:'new',Working:'working','Meeting booked':'booked',Customer:'won',Disqualified:'disq'};
+const CDAYS = [1,3,6,8,10,12,14];
+const CPILL = {Call:'p-call',Email:'p-email',LinkedIn:'p-li',SMS:'p-working',Voicemail:'p-call','Door Knock':'p-dk'};
+
+// ── CHAT QUICK-SEND CHIPS ──
+const CHIPS = [
+  {l:'📞 Called, no answer',  t:'Used cold call opener A on Michael Quinn, no answer. Day 1.'},
+  {l:'📧 Day 1 email sent',   t:'Sent day 1 cold email to Declan Farrell at Farrell Motors.'},
+  {l:'💼 LinkedIn DM',        t:'Sent LinkedIn connection note to Paul McVey.'},
+  {l:'🤝 Booked meeting',     t:'Booked on-site with Sarah Brennan for Thursday 2pm.'},
+  {l:'🚪 Door knocked',       t:"Door knocked at Quinn Electrical, receptionist took my card."},
+  {l:'💰 Deal closed!',       t:'Brennan Recruitment just signed, £6,900 PIF. Deal won!'},
+];
+
+// ── SAMPLE CSV DATA for Import tab ──
+const SAMPLES = {
+  apollo:{
+    h:['First Name','Last Name','Title','Company','# Employees','Email','Work Direct Phone','City','State'],
+    r:[
+      ['Michael','Quinn','Managing Director','Quinn Electrical','45','mquinn@quinn-elec.co.uk','+44 28 9044 1100','Belfast','Northern Ireland'],
+      ['Sarah','Brennan','CEO','Brennan Recruitment','22','sarah@brennanrec.ie','+44 28 9066 2200','Belfast','Northern Ireland'],
+      ['Thomas','Bradley','MD','Bradley Engineering','67','tbradley@bradleyeng.co.uk','+44 28 9011 2233','Belfast','Northern Ireland'],
+      ['James',"O'Brien",'MD',"O'Brien Logistics",'34','james@obrienlog.ie','','Dublin','Ireland'],
+      ['Emma','Walsh','Head of Sales','Walsh & Partners','55','emma@walshandpartners.ie','','Cork','Ireland'],
+    ]
+  },
+  linkedin:{
+    h:['First Name','Last Name','Current Position','Company Name','Company Size','Email Address','Phone','Location'],
+    r:[
+      ['Patricia','Doherty','CEO','Doherty Retail Group','11-50','patricia@dohertyretail.ie','','Belfast, UK'],
+      ['Conor','McMahon','Owner','McMahon Plumbing','1-10','conor@mcmahon.co.uk','+44 28 9044 5566','Lisburn, UK'],
+      ['Sinead','Cannon','CEO','Cannon HR','11-50','sinead@cannonhr.ie','','Belfast, UK'],
+    ]
+  },
+  manual:{
+    h:['Business Name','Contact Person','Job Title','Phone Number','Email Address','Town'],
+    r:[
+      ["Patton's Café",'Mark Patton','Owner','+44 28 9066 1122','mark@pattonscafe.co.uk','Belfast'],
+      ['Morrison Dental','Dr. Helen Morrison','Principal Dentist','+44 28 9044 3344','h.morrison@morrisondental.co.uk','Belfast'],
+      ['McCann Flooring','Gary McCann','MD','+44 28 9055 9900','gary@mccannflooring.co.uk','Belfast'],
+    ]
+  },
+};
+
+// ── COLUMN MAPPING PATTERNS (for CSV import) ──
+const FP = {
+  name:['full name','contact name','name','person'],
+  company:['company','organization','account','business','firm'],
+  role:['title','job title','role','position'],
+  email:['email','e-mail','email address'],
+  phone:['phone','mobile','tel','telephone'],
+  location:['city','location','region','country','state','county'],
+  employees:['employees','headcount','company size','# employees'],
+  revenue:['revenue','annual revenue','turnover'],
+  source:['source','lead source'],
+};
+
+// ── LEVENSHTEIN for fuzzy column matching ──
+function lev(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i||j));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
+
+// ── ICP SEGMENT SCORING ──
+function scoreSeg(r){
+  let s=0;
+  const loc=(r.location||'').toLowerCase(), role=(r.role||'').toLowerCase(), emp=parseInt((r.employees||'0').replace(/[^0-9]/g,''))||0;
+  if(loc.includes('belfast'))s+=4;
+  else if(['northern ireland','antrim','lisburn','newry','derry'].some(p=>loc.includes(p)))s+=3;
+  else if(loc.includes('ireland')||loc.includes('uk'))s+=1;
+  if(/\b(owner|md|ceo|managing director|founder)\b/.test(role))s+=3;
+  else if(/\b(director|head of|vp)\b/.test(role))s+=2;
+  else if(/\b(manager|marketing|sales)\b/.test(role))s+=1;
+  if(emp>=10&&emp<=100)s+=2; else if(emp>100&&emp<=200)s+=1;
+  return s>=7?'A':s>=4?'B':'C';
+}
+
+// ── DEFAULT SCRIPTS ──
+const DEFAULT_SCRIPTS = [
+  {id:'s1',name:'Cold Call Opener A — Time Check',channel:'Call',useCase:'Cold',active:true,copy:`"Hi [Name], it's [Your Name] from [Agency] — have I caught you at a terrible time?\n\n[Wait]\n\nPerfect — I'll be quick. I work with Belfast business owners turning their premises into professional video that drives enquiries and recruitment. I'd love 20 minutes on-site to show you what that looks like. Are you free [Day] or [Day]?"`},
+  {id:'s2',name:'Cold Call Opener B — Pattern Interrupt',channel:'Call',useCase:'Cold',active:true,copy:`"Hey [Name] — quick question, and I promise this isn't a pitch call.\n\nDo you currently use video in your marketing at all?\n\n[Wait]\n\nInteresting — we've just finished a project for a Belfast business and it drove a 30% uptick in enquiries. I'd love to show you how it works — 20 minutes on-site. Would [Day] work?"`},
+  {id:'s3',name:'Cold Call Opener C — Hyper-Local',channel:'Call',useCase:'Cold',active:false,copy:`"Hi [Name], [Your Name] here — I'm in Belfast today working with a few [industry] businesses. I wanted to ring you specifically because [Company] came up as exactly the kind of business that does well with what we do. Do you have 2 minutes?"`},
+  {id:'s4',name:'Email Day 1 — Problem + Visit Offer',channel:'Email',useCase:'Cold',active:true,copy:`Subject: Quick question, [Company]\n\nHi [Name],\n\nMost Belfast businesses I talk to are invisible online — not because they're not good, but because they haven't got the video to show it.\n\nWe do on-site shoots for local SMEs: 10–15 videos for website, ads, social, recruitment. One day, handled start to finish.\n\nWorth a 20-minute visit?\n\n[Your Name]`},
+  {id:'s5',name:'Email Day 3 — Mini Case Study',channel:'Email',useCase:'Follow-up',active:true,copy:`Subject: What we did for [similar company]\n\nHi [Name],\n\nDidn't hear back — wanted to share a quick example.\n\n[Client X] in Belfast were struggling to get enquiries. We spent one day on-site, produced 12 videos. Within 8 weeks their enquiries were up 40%.\n\n£6,900. One shoot. No retainer.\n\nHappy to show you what that looks like for [Company]?\n\n[Your Name]`},
+  {id:'s6',name:'Email Day 6 — Break-up',channel:'Email',useCase:'Breakup',active:true,copy:`Subject: Did I misread this?\n\nHi [Name],\n\nI've reached out a couple of times — either the timing's off or video's not a priority right now, both completely fine.\n\nIf things change, we're at [contact details].\n\nGood luck with [Company].\n\n[Your Name]`},
+  {id:'s7',name:'LinkedIn Connection Note',channel:'LinkedIn',useCase:'Cold',active:true,copy:`Hi [Name] — I work with Belfast SMEs on video marketing. Your business came up and I think there's a fit. Happy to connect?`},
+  {id:'s8',name:'LinkedIn First DM',channel:'LinkedIn',useCase:'Cold',active:true,copy:`Hey [Name], thanks for connecting.\n\nI'll be straight — we produce done-for-you video for Belfast businesses. One shoot day, 10-15 videos across ads, web, social and recruitment.\n\nWorth a quick 20-min chat for [Company]?`},
+  {id:'s9',name:'Voicemail Script',channel:'Voicemail',useCase:'Cold',active:true,copy:`"Hi [Name], [Your Name] from [Agency]. I'm working with Belfast businesses on professional video — I'd love to pop in and show you what we do. I'll also send a quick email. Thanks — [number]."`},
+  {id:'s10',name:'SMS After Voicemail',channel:'SMS',useCase:'Follow-up',active:true,copy:`Hi [Name], [Your Name] here — just left you a voicemail. We do on-site video for Belfast SMEs, one shoot day, 10-15 videos. Worth 20 mins? [Your Name]`},
+  {id:'s11',name:'Door Knock Opener',channel:'Door Knock',useCase:'Cold',active:true,copy:`"Hi — is [Name] around?\n\n[To DM]: Hi [Name], [Your Name] from [Agency]. I was in the area and yours caught my eye. We do professional video for local companies — website, ads, social, recruitment. Do you have 5 minutes?"`},
+];
+
+// ── DEFAULT DATABASE ──
+function defDB(){
+  return {
+    leads:[
+      {id:1,name:'Michael Quinn',company:'Quinn Electrical',role:'MD',phone:'+44 28 9044 1100',email:'mquinn@quinn-elec.co.uk',seg:'A',source:'Scraped list',status:'Working',createdAt:'2026-04-01',notes:''},
+      {id:2,name:'Sarah Brennan',company:'Brennan Recruitment',role:'CEO',phone:'+44 28 9066 2200',email:'sarah@brennanrec.ie',seg:'A',source:'Door knock',status:'Meeting booked',createdAt:'2026-03-28',notes:''},
+      {id:3,name:'Declan Farrell',company:'Farrell Motors',role:'Owner',phone:'+44 28 9022 3300',email:'dec@farrellmotors.com',seg:'B',source:'Scraped list',status:'New',createdAt:'2026-04-07',notes:''},
+      {id:4,name:'Claire Hughes',company:'Hughes Interiors',role:'Marketing Manager',phone:'+44 28 9077 4400',email:'claire@hughesin.co.uk',seg:'A',source:'Referral',status:'Working',createdAt:'2026-04-02',notes:''},
+      {id:5,name:'Paul McVey',company:'McVey Construction',role:'Director',phone:'+44 28 9033 5500',email:'paul@mcveybuild.com',seg:'B',source:'Scraped list',status:'New',createdAt:'2026-04-08',notes:''},
+    ],
+    activities:[
+      {id:101,leadId:1,leadName:'Michael Quinn',type:'Call',outcome:'No answer',scriptId:'s1',day:1,note:'',loggedAt:TODAY()},
+      {id:102,leadId:2,leadName:'Sarah Brennan',type:'Meeting',outcome:'Booked meeting',scriptId:'s2',day:1,note:'On-site Thu 2pm',loggedAt:TODAY()},
+      {id:103,leadId:4,leadName:'Claire Hughes',type:'Email',outcome:'Positive reply',scriptId:'s4',day:3,note:'Interested',loggedAt:TODAY()},
+      {id:104,leadId:3,leadName:'Declan Farrell',type:'LinkedIn',outcome:'No answer',scriptId:'s7',day:1,note:'',loggedAt:TODAY()},
+      {id:105,leadId:5,leadName:'Paul McVey',type:'Call',outcome:'Spoke – follow-up',scriptId:'s1',day:1,note:'Call back Mon',loggedAt:TODAY()},
+    ],
+    deals:[
+      {id:1,company:'Brennan Recruitment',leadId:2,leadName:'Sarah Brennan',stage:'On-site booked',amount:DEAL_AMOUNT,terms:'PIF',closeDate:'2026-04-14',closer:'BDO',commRate:COMM_RATE,paid:false},
+      {id:2,company:'Quinn Electrical',leadId:1,leadName:'Michael Quinn',stage:'Discovery scheduled',amount:DEAL_AMOUNT,terms:'50/50',closeDate:'2026-04-17',closer:'BDO',commRate:COMM_RATE,paid:false},
+      {id:3,company:'Murphy Logistics',leadId:null,leadName:'Ciara Murphy',stage:'Won',amount:DEAL_AMOUNT,terms:'PIF',closeDate:'2026-03-28',closer:'BDO',commRate:COMM_RATE,paid:true},
+      {id:4,company:'TechNova NI',leadId:null,leadName:'Brendan Lee',stage:'Won',amount:DEAL_AMOUNT,terms:'PIF',closeDate:'2026-04-02',closer:'BDO',commRate:COMM_RATE,paid:false},
+    ],
+    scripts: DEFAULT_SCRIPTS,
+    chatHistory:[],
+  };
+}
+
+function loadDB(){try{const r=localStorage.getItem('sos_idx1');if(r)return JSON.parse(r);}catch{}return defDB();}
+
+// ════════════════════════════════════════════
+// APP ROOT
+// ════════════════════════════════════════════
+function App(){
+  const[view,setView]=useState('bdo');
+  const[db,setDB]=useState(()=>loadDB());
+  const[toast,setToast]=useState({msg:'',show:false});
+  const upd=useCallback(fn=>{setDB(p=>{const n=fn(p);try{localStorage.setItem('sos_idx1',JSON.stringify(n));}catch{}return n;});},[]);
+  const shT=useCallback(msg=>{setToast({msg,show:true});setTimeout(()=>setToast(t=>({...t,show:false})),2600);},[]);
+  const NAV=[['bdo','📋 BDO Daily'],['chat','💬 AI Logger'],['leads','👥 Leads'],['pipeline','💼 Pipeline'],['cadence','📅 Cadence'],['import','📥 Import CSV'],['scripts','📝 Scripts'],['commission','💰 Commission'],['report','📊 Report']];
+  return h('div',{className:'app'},
+    h('nav',{className:'nav'},
+      h('div',{className:'brand'},h('div',{className:'brand-dot'}),h('h1',null,AGENCY_NAME)),
+      h('div',{className:'nav-tabs'},NAV.map(([id,lbl])=>h('button',{key:id,className:'tab'+(view===id?' on':''),onClick:()=>setView(id)},lbl))),
+      h('span',{className:'live'},'🟢 Live')
+    ),
+    view==='chat'
+      ?h('div',{className:'chat-content'},h(Chat,{db,upd,toast:shT}))
+      :h('div',{className:'content'},
+        view==='bdo'&&h(BDO,{db,go:setView}),
+        view==='leads'&&h(Leads,{db,upd,toast:shT}),
+        view==='pipeline'&&h(Pipeline,{db,upd,toast:shT}),
+        view==='cadence'&&h(Cadence,{db,go:setView}),
+        view==='import'&&h(ImportCSV,{db,upd,toast:shT,go:setView}),
+        view==='scripts'&&h(Scripts,{db,upd,toast:shT}),
+        view==='commission'&&h(Commission,{db,upd,toast:shT}),
+        view==='report'&&h(Report,{db})
+      ),
+    h('div',{className:'toast'+(toast.show?' show':'')},toast.msg)
+  );
+}
+
+// ════════════════════════════════════════════
+// BDO DAILY DASHBOARD
+// ════════════════════════════════════════════
+function BDO({db,go}){
+  const ta=db.activities.filter(a=>a.loggedAt===TODAY());
+  const bk=ta.filter(a=>a.outcome==='Booked meeting').length;
+  const won=db.deals.filter(d=>d.stage==='Won');
+  const rev=won.reduce((s,d)=>s+d.amount,0), comm=won.reduce((s,d)=>s+d.amount*d.commRate,0);
+  const cnt=ta.length, pct=Math.min(100,Math.round(cnt/TARGET_ACTIONS*100));
+  const wl=db.leads.filter(l=>['New','Working'].includes(l.status)).sort((a,b)=>a.seg<b.seg?-1:1);
+  return h('div',null,
+    h('div',{className:'fb'},
+      h('div',null,h('div',{className:'sh2'},'Good morning 👋'),h('div',{className:'sub'},new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),' · Your day at a glance')),
+      h('button',{className:'btn btn-p',onClick:()=>go('chat')},'💬 Log via AI')
+    ),
+    h('div',{className:'mg'},
+      h('div',{className:'mc'},
+        h('div',{className:'ml'},'📞 Actions Today'),
+        h('div',{className:'mv'},cnt),
+        h('div',{style:{marginTop:6}},
+          h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--tx2)',marginBottom:4}},h('span',null,'Target: '+TARGET_ACTIONS),h('span',null,pct+'%')),
+          h('div',{className:'pb'},h('div',{className:'pf',style:{width:pct+'%'}}))
+        )
+      ),
+      h('div',{className:'mc'},h('div',{className:'ml'},'📅 Meetings Booked'),h('div',{className:'mv'},bk),h('div',{className:'ms'+(bk>=1?' up':'')},bk>=1?'✅ Target hit!':'Target: 1+/day')),
+      h('div',{className:'mc'},h('div',{className:'ml'},'🏆 Revenue Won'),h('div',{className:'mv'},FMT(rev)),h('div',{className:'ms'},won.length+' deals')),
+      h('div',{className:'mc'},h('div',{className:'ml'},'💜 Commission Earned'),h('div',{className:'mv',style:{color:'var(--pu)'}},FMT(comm)),h('div',{className:'ms'},'@ '+(COMM_RATE*100)+'%'))
+    ),
+    h('div',{className:'card'},
+      h('div',{className:'ct'},'⚡ Today\'s Activity Feed',h('span',{style:{fontSize:11,color:'var(--tx3)',fontWeight:400,marginLeft:'auto'}},cnt+' logged')),
+      ta.length===0
+        ?h('div',{style:{textAlign:'center',padding:20,color:'var(--tx3)',fontSize:12}},'No activities yet — head to 💬 AI Logger!')
+        :ta.slice().reverse().map(a=>{
+          const sc=db.scripts.find(s=>s.id===a.scriptId);
+          return h('div',{key:a.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid var(--bd)'}},
+            h('span',{style:{fontSize:15}},AI_ICONS[a.type]||'📌'),
+            h('div',{style:{flex:1}},
+              h('span',{style:{fontWeight:600,fontSize:12}},a.leadName),
+              h('span',{style:{color:'var(--tx3)',fontSize:11,marginLeft:6}},'Day '+a.day),
+              sc&&h('span',{style:{fontSize:10,color:'var(--pu)',marginLeft:6,background:'var(--pul)',padding:'1px 6px',borderRadius:10}},sc.name.split('—')[0].trim()),
+              a.note&&h('div',{style:{fontSize:11,color:'var(--tx2)',marginTop:1}},a.note)
+            ),
+            h('span',{className:'pill p-'+(APILL[a.type]||'call')},a.type)
+          );
+        })
+    ),
+    h('div',{className:'card'},
+      h('div',{className:'ct'},'🎯 Lead Queue'),
+      wl.length===0
+        ?h('div',{style:{textAlign:'center',padding:20,color:'var(--tx3)',fontSize:12}},'No active leads — import a CSV to get started')
+        :h('table',{className:'dt'},
+          h('thead',null,h('tr',null,h('th',null,'Name'),h('th',null,'Company'),h('th',null,'Seg'),h('th',null,'Status'),h('th',null,'Touches'),h('th',null,''))),
+          h('tbody',null,wl.map(l=>h('tr',{key:l.id},
+            h('td',null,h('strong',null,l.name)),
+            h('td',{style:{color:'var(--tx2)'}},l.company),
+            h('td',null,h('span',{className:'seg-'+l.seg.toLowerCase()},l.seg)),
+            h('td',null,h('span',{className:'pill p-'+(SPILL[l.status]||'new')},l.status)),
+            h('td',{style:{color:'var(--tx3)'}},db.activities.filter(a=>a.leadId===l.id).length+' touches'),
+            h('td',null,h('button',{className:'btn btn-ok btn-sm',onClick:()=>go('chat')},'💬 Log'))
+          )))
+        )
+    )
+  );
+}
+
+// ════════════════════════════════════════════
+// AI CHAT LOGGER
+// ════════════════════════════════════════════
+function Chat({db,upd,toast}){
+  const[msgs,setMsgs]=useState([{role:'ai',text:"Hey! 👋 I'm your AI sales logger.\n\nTell me what happened — I'll log it and match the script automatically.\n\nExamples:\n• \"Used opener A on Michael Quinn, no answer. Day 1.\"\n• \"Sent day 1 email to Declan, positive reply!\"\n• \"Brennan Recruitment signed — £6,900 PIF!\"\n\nWhat just happened? 🎯"}]);
+  const[inp,setInp]=useState('');
+  const[busy,setBusy]=useState(false);
+  const ref=useRef(null);
+  const inpRef=useRef(null);
+  const tc=db.activities.filter(a=>a.loggedAt===TODAY()).length;
+  useEffect(()=>{if(ref.current)ref.current.scrollTop=ref.current.scrollHeight;},[msgs]);
+
+  async function send(text){
+    const t=(text||inp).trim(); if(!t||busy)return;
+    setInp(''); setBusy(true);
+    setMsgs(p=>[...p,{role:'user',text:t},{role:'ai',text:'...'}]);
+    try{
+      const lctx=db.leads.map(l=>`ID:${l.id}|${l.name}|${l.company}|Seg:${l.seg}|Status:${l.status}`).join('\n');
+      const sctx=db.scripts.filter(s=>s.active).map(s=>`ID:${s.id}|${s.name}|Channel:${s.channel}`).join('\n');
+      const sys=`You are an AI sales logger for a Belfast creative video agency (${FMT(DEAL_AMOUNT)} packages).\nLEADS:\n${lctx}\nACTIVE SCRIPTS:\n${sctx}\nTODAY: ${TODAY()}\nReply ONLY with valid JSON:\n{"reply":"friendly reply with emojis","actions":[{"type":"log_activity"|"update_lead_status"|"create_deal"|"add_lead"|"none","data":{...}}]}\nlog_activity:{leadId,leadName,activityType:"Call"|"Voicemail"|"Email"|"LinkedIn"|"Text"|"Door Knock"|"Meeting",outcome:"No answer"|"Left voicemail"|"Spoke – follow-up"|"Spoke – not interested"|"Booked meeting"|"Positive reply"|"No-show"|"Showed",scriptId:"matching script ID or null",cadenceDay:1-14,note}\nupdate_lead_status:{leadId,newStatus}\ncreate_deal:{company,leadName,leadId,stage,amount:${DEAL_AMOUNT},terms:"PIF"|"50/50",closeDate,closer:"BDO"}\nadd_lead:{name,company,role,phone,email,seg,source}\nCommission is always ${COMM_RATE*100}% — mention it when a deal is created.`;
+      const history=[...(db.chatHistory||[]).slice(-6),{role:'user',content:t}];
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:sys,messages:history})});
+      const data=await res.json();
+      const raw=data.content?.[0]?.text||'{}';
+      let parsed; try{parsed=JSON.parse(raw);}catch{parsed={reply:raw,actions:[]};}
+      const cards=[];
+      upd(prev=>{
+        const n={...prev,leads:[...prev.leads],activities:[...prev.activities],deals:[...prev.deals]};
+        for(const a of(parsed.actions||[])){
+          if(a.type==='log_activity'&&a.data){
+            const act={id:Date.now()+Math.random(),leadId:a.data.leadId,leadName:a.data.leadName||'Unknown',type:a.data.activityType||'Call',outcome:a.data.outcome||'No answer',scriptId:a.data.scriptId||null,day:a.data.cadenceDay||1,note:a.data.note||'',loggedAt:TODAY()};
+            n.activities.push(act);
+            const sc=prev.scripts.find(s=>s.id===act.scriptId);
+            cards.push({action:'Activity logged',details:{Lead:act.leadName,Type:act.type,Outcome:act.outcome,Script:sc?sc.name.split('—')[0].trim():'—',Day:String(act.day)}});
+            if(act.outcome==='Booked meeting'){const l=n.leads.find(x=>x.id===act.leadId);if(l)l.status='Meeting booked';}
+          }
+          if(a.type==='update_lead_status'&&a.data){const l=n.leads.find(x=>x.id===a.data.leadId);if(l){const old=l.status;l.status=a.data.newStatus;cards.push({action:'Status updated',details:{Lead:l.name,From:old,To:l.status}});}}
+          if(a.type==='create_deal'&&a.data){
+            const d=a.data;
+            const deal={id:Date.now(),company:d.company,leadId:d.leadId,leadName:d.leadName||'',stage:d.stage||'Won',amount:d.amount||DEAL_AMOUNT,terms:d.terms||'PIF',closeDate:d.closeDate||TODAY(),closer:d.closer||'BDO',commRate:COMM_RATE,paid:false};
+            n.deals.push(deal);
+            if(d.leadId){const l=n.leads.find(x=>x.id===d.leadId);if(l)l.status='Customer';}
+            cards.push({action:'🏆 Deal + Commission',details:{Company:deal.company,Stage:deal.stage,Amount:FMT(deal.amount),Commission:FMT(deal.amount*COMM_RATE),Closer:deal.closer}});
+          }
+          if(a.type==='add_lead'&&a.data){
+            const d=a.data;
+            const l={id:Date.now(),name:d.name,company:d.company,role:d.role||'',phone:d.phone||'',email:d.email||'',seg:d.seg||'B',source:d.source||'Scraped list',status:'New',createdAt:TODAY(),notes:''};
+            n.leads.push(l);
+            cards.push({action:'👤 Lead added',details:{Name:l.name,Company:l.company,Segment:l.seg}});
+          }
+        }
+        n.chatHistory=[...(prev.chatHistory||[]),{role:'user',content:t},{role:'assistant',content:raw}].slice(-20);
+        return n;
+      });
+      setMsgs(p=>{const u=[...p];u[u.length-1]={role:'ai',text:parsed.reply||'Got it!',cards};return u;});
+    }catch{
+      setMsgs(p=>{const u=[...p];u[u.length-1]={role:'ai',text:'Connection issue. Try again! 🔄'};return u;});
+    }
+    setBusy(false); inpRef.current&&inpRef.current.focus();
+  }
+
+  return h('div',{className:'chat-wrap'},
+    h('div',{className:'chat-header'},
+      h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}},
+        h('div',null,h('h2',null,'AI Activity Logger 🤖'),h('p',null,'Talk naturally — I log it and match the script.')),
+        h('div',{className:'fr'},
+          h('span',{style:{fontSize:11,color:'var(--tx2)'}},tc+' logged today'),
+          h('button',{className:'btn btn-s btn-sm',onClick:()=>{setMsgs([{role:'ai',text:'Cleared. What just happened? 🎯'}]);upd(p=>({...p,chatHistory:[]}));}},'Clear')
+        )
+      ),
+      h('div',{className:'chips'},CHIPS.map(c=>h('button',{key:c.l,className:'chip',onClick:()=>send(c.t)},c.l)))
+    ),
+    h('div',{className:'msgs',ref},
+      msgs.map((m,i)=>h('div',{key:i,className:'msg '+(m.role==='user'?'u':'a')},
+        h('div',{className:'av '+(m.role==='user'?'u':'ai')},m.role==='user'?'👤':'🤖'),
+        h('div',null,
+          m.text==='...'
+            ?h('div',{className:'bub ai'},h('div',{className:'typing'},h('span'),h('span'),h('span')))
+            :m.text&&h('div',{className:'bub '+(m.role==='user'?'u':'ai')},m.text.split('\n').map((l,j)=>h(React.Fragment,{key:j},l,h('br')))),
+          (m.cards||[]).map((c,j)=>h('div',{key:j,className:'lcard'},
+            h('div',{className:'lct'},'✅ '+c.action),
+            Object.entries(c.details).map(([k,v])=>h('div',{key:k,className:'lr'},h('span',{className:'lk'},k),h('span',{className:'lv'},v)))
+          ))
+        )
+      ))
+    ),
+    h('div',{className:'input-area'},
+      h('div',{className:'input-wrap'},
+        h('textarea',{ref:inpRef,className:'itx',value:inp,onChange:ev=>setInp(ev.target.value),onKeyDown:ev=>{if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();send();}},placeholder:"e.g. 'Used opener A on Quinn, no answer' or 'Brennan Recruitment signed!'",rows:1}),
+        h('button',{className:'send-btn',onClick:()=>send(),disabled:busy||!inp.trim()},'➤')
+      ),
+      h('div',{className:'hint'},'Enter to send · Shift+Enter for new line')
+    )
+  );
+}
+
+// ════════════════════════════════════════════
+// LEADS
+// ════════════════════════════════════════════
+function Leads({db,upd,toast}){
+  const[filter,setFilter]=useState('all');
+  const[open,setOpen]=useState(false);
+  const[f,setF]=useState({name:'',company:'',role:'',phone:'',email:'',seg:'A',source:'Scraped list'});
+  const leads=filter==='all'?db.leads:db.leads.filter(l=>l.status===filter);
+  function sub(){
+    if(!f.name||!f.company){toast('⚠️ Name and company required');return;}
+    upd(p=>({...p,leads:[...p.leads,{...f,id:Date.now(),status:'New',createdAt:TODAY(),notes:''}]}));
+    toast('✅ Lead added!'); setOpen(false); setF({name:'',company:'',role:'',phone:'',email:'',seg:'A',source:'Scraped list'});
+  }
+  return h('div',null,
+    h('div',{className:'fb'},
+      h('div',null,h('div',{className:'sh2'},'Leads 👥'),h('div',{className:'sub'},'All decision-makers in your pipeline')),
+      h('div',{className:'fr'},
+        h('select',{value:filter,onChange:ev=>setFilter(ev.target.value),className:'fsel',style:{width:'auto'}},
+          h('option',{value:'all'},'All Status'),h('option',{value:'New'},'New'),h('option',{value:'Working'},'Working'),h('option',{value:'Meeting booked'},'Meeting booked'),h('option',{value:'Customer'},'Customer'),h('option',{value:'Disqualified'},'Disqualified')
+        ),
+        h('button',{className:'btn btn-p',onClick:()=>setOpen(true)},'➕ Add Lead')
+      )
+    ),
+    h('div',{className:'card',style:{padding:0,overflow:'hidden'}},
+      h('table',{className:'dt'},
+        h('thead',null,h('tr',null,h('th',null,'Name'),h('th',null,'Company'),h('th',null,'Role'),h('th',null,'Seg'),h('th',null,'Status'),h('th',null,'Source'),h('th',null,'Touches'))),
+        h('tbody',null,
+          leads.length===0
+            ?h('tr',null,h('td',{colSpan:7,style:{textAlign:'center',padding:22,color:'var(--tx3)'}},'No leads found'))
+            :leads.map(l=>h('tr',{key:l.id},
+              h('td',null,h('strong',null,l.name),h('div',{style:{fontSize:10,color:'var(--tx3)',marginTop:1}},l.phone)),
+              h('td',{style:{color:'var(--tx2)'}},l.company),
+              h('td',{style:{color:'var(--tx2)',fontSize:11}},l.role),
+              h('td',null,h('span',{className:'seg-'+l.seg.toLowerCase()},l.seg)),
+              h('td',null,h('span',{className:'pill p-'+(SPILL[l.status]||'disq')},l.status)),
+              h('td',{style:{color:'var(--tx3)',fontSize:11}},l.source),
+              h('td',null,h('span',{style:{background:'var(--bg2)',borderRadius:20,padding:'2px 8px',fontSize:10,color:'var(--tx2)',border:'1px solid var(--bd)'}},db.activities.filter(a=>a.leadId===l.id).length+' touches'))
+            ))
+        )
+      )
+    ),
+    open&&h('div',{className:'mbg',onClick:()=>setOpen(false)},
+      h('div',{className:'mbox',onClick:ev=>ev.stopPropagation()},
+        h('div',{className:'mh'},h('h2',null,'Add Lead 👤'),h('button',{className:'mc2',onClick:()=>setOpen(false)},'✕')),
+        h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:11}},
+          [['name','Full Name','John Smith'],['company','Company','Smith & Sons Ltd'],['role','Role','MD'],['phone','Phone','+44 28 9000 0000'],['email','Email','john@example.com']].map(([k,lbl,ph])=>
+            h('div',{key:k,className:'fld'},h('label',{className:'flbl'},lbl),h('input',{className:'finp',value:f[k],onChange:ev=>setF(p=>({...p,[k]:ev.target.value})),placeholder:ph}))
+          ),
+          h('div',{className:'fld'},h('label',{className:'flbl'},'Segment'),h('select',{className:'fsel',value:f.seg,onChange:ev=>setF(p=>({...p,seg:ev.target.value}))},h('option',{value:'A'},'A – Perfect ICP'),h('option',{value:'B'},'B – Good fit'),h('option',{value:'C'},'C – Possible'))),
+          h('div',{className:'fld'},h('label',{className:'flbl'},'Source'),h('select',{className:'fsel',value:f.source,onChange:ev=>setF(p=>({...p,source:ev.target.value}))},h('option',null,'Scraped list'),h('option',null,'Door knock'),h('option',null,'Referral'),h('option',null,'Inbound')))
+        ),
+        h('div',{style:{display:'flex',gap:9,marginTop:15,justifyContent:'flex-end'}},h('button',{className:'btn btn-s',onClick:()=>setOpen(false)},'Cancel'),h('button',{className:'btn btn-p',onClick:sub},'Add Lead ✓'))
+      )
+    )
+  );
+}
+
+// ════════════════════════════════════════════
+// PIPELINE
+// ════════════════════════════════════════════
+function Pipeline({db,upd,toast}){
+  const[open,setOpen]=useState(false);
+  const[form,setForm]=useState({company:'',closer:'BDO',terms:'50/50'});
+  const dragId=useRef(null);
+  function onDS(ev,id){dragId.current=id;ev.dataTransfer.effectAllowed='move';ev.currentTarget.classList.add('dragging');}
+  function onDE(ev){ev.currentTarget.classList.remove('dragging');document.querySelectorAll('.kcol').forEach(c=>c.classList.remove('drag-over'));}
+  function onCDO(ev){ev.preventDefault();document.querySelectorAll('.kcol').forEach(c=>c.classList.remove('drag-over'));ev.currentTarget.classList.add('drag-over');}
+  function onDrop(ev,stage){ev.preventDefault();document.querySelectorAll('.kcol').forEach(c=>c.classList.remove('drag-over'));if(dragId.current===null)return;const id=dragId.current;const deal=db.deals.find(d=>d.id===id);if(deal&&deal.stage!==stage){upd(p=>({...p,deals:p.deals.map(d=>d.id===id?{...d,stage}:d)}));toast('📍 Moved to "'+stage+'"');}dragId.current=null;}
+  function add(){if(!form.company.trim())return;upd(p=>({...p,deals:[...p.deals,{id:Date.now(),company:form.company.trim(),leadId:null,leadName:'',stage:'Discovery scheduled',amount:DEAL_AMOUNT,terms:form.terms,closeDate:new Date(Date.now()+14*86400000).toISOString().split('T')[0],closer:form.closer,commRate:COMM_RATE,paid:false}]}));toast('💼 Deal created!');setForm({company:'',closer:'BDO',terms:'50/50'});setOpen(false);}
+  const pv=db.deals.filter(d=>!['Won','Lost'].includes(d.stage)).reduce((s,d)=>s+d.amount,0);
+  const cp=db.deals.filter(d=>!['Won','Lost'].includes(d.stage)).reduce((s,d)=>s+d.amount*d.commRate,0);
+  return h('div',null,
+    h('div',{className:'fb'},
+      h('div',null,
+        h('div',{className:'sh2'},'Pipeline 💼'),
+        h('div',{className:'sub'},'Drag deals between columns · ',h('span',{style:{color:'var(--acd)',fontWeight:600}},FMT(pv)+' pipeline value'),' · ',h('span',{style:{color:'var(--pu)',fontWeight:600}},FMT(cp)+' potential commission'))
+      ),
+      h('button',{className:'btn btn-p',onClick:()=>setOpen(true)},'➕ New Deal')
+    ),
+    h('div',{className:'kanban'},
+      STAGES.map(s=>{
+        const deals=db.deals.filter(d=>d.stage===s);
+        return h('div',{key:s,className:'kcol',onDragOver:onCDO,onDrop:ev=>onDrop(ev,s),onDragLeave:ev=>ev.currentTarget.classList.remove('drag-over')},
+          h('div',{className:'kcol-title'},h('span',null,SE[s]+' '+s),h('span',{className:'kbadge'},deals.length)),
+          deals.length===0&&h('div',{style:{fontSize:10,color:'var(--tx3)',textAlign:'center',padding:'12px 0',fontStyle:'italic'}},'Drop here'),
+          deals.map(d=>h('div',{key:d.id,className:'kb',draggable:true,onDragStart:ev=>onDS(ev,d.id),onDragEnd:onDE},
+            h('div',{className:'kbn'},d.company),
+            h('div',{className:'kbs'},d.leadName||'—'),
+            h('div',{style:{display:'flex',justifyContent:'space-between',marginTop:5}},h('div',{className:'kba'},FMT(d.amount)),h('span',{style:{fontSize:9,color:'var(--tx3)'}},d.terms)),
+            h('div',{className:'kbc'},'💜 '+FMT(d.amount*d.commRate)+' · '+d.closer),
+            d.paid&&h('span',{style:{fontSize:9,background:'var(--acl)',color:'var(--acd)',padding:'1px 6px',borderRadius:10,marginTop:3,display:'inline-block'}},'✓ Paid')
+          ))
+        );
+      })
+    ),
+    open&&h('div',{className:'mbg',onClick:()=>setOpen(false)},
+      h('div',{className:'mbox',onClick:ev=>ev.stopPropagation()},
+        h('div',{className:'mh'},h('h2',null,'New Deal 💼'),h('button',{className:'mc2',onClick:()=>setOpen(false)},'✕')),
+        h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}},
+          h('div',{className:'fld'},h('label',{className:'flbl'},'Company'),h('input',{className:'finp',value:form.company,onChange:ev=>setForm(p=>({...p,company:ev.target.value})),placeholder:'Smith & Sons Ltd'})),
+          h('div',{className:'fld'},h('label',{className:'flbl'},'Closer'),h('input',{className:'finp',value:form.closer,onChange:ev=>setForm(p=>({...p,closer:ev.target.value})),placeholder:'BDO name'})),
+          h('div',{className:'fld'},h('label',{className:'flbl'},'Terms'),h('select',{className:'fsel',value:form.terms,onChange:ev=>setForm(p=>({...p,terms:ev.target.value}))},h('option',{value:'50/50'},'50/50'),h('option',{value:'PIF'},'Pay in full (PIF)')))
+        ),
+        h('div',{style:{background:'var(--pul)',border:'1px solid #ddd6fe',borderRadius:8,padding:'10px 12px',display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:11}},
+          h('span',{style:{fontSize:12,color:'var(--pu)',fontWeight:600}},'💜 Commission at '+(COMM_RATE*100)+'%'),
+          h('span',{style:{fontSize:15,fontFamily:"'Libre Baskerville',Georgia,serif",color:'var(--pu)'}},FMT(DEAL_AMOUNT*COMM_RATE))
+        ),
+        h('div',{style:{display:'flex',gap:9,marginTop:12,justifyContent:'flex-end'}},h('button',{className:'btn btn-s',onClick:()=>setOpen(false)},'Cancel'),h('button',{className:'btn btn-p',onClick:add},'Create ✓'))
+      )
+    )
+  );
+}
+
+// ════════════════════════════════════════════
+// CADENCE TRACKER
+// ════════════════════════════════════════════
+function Cadence({db,go}){
+  const active=db.leads.filter(l=>['New','Working','Meeting booked'].includes(l.status));
+  const plan=[['Day 1','📞 Call + VM\n📧 Email #1\n💼 LinkedIn'],['Day 3','📞 Call\n📧 Email #2'],['Day 6','💼 LinkedIn DM\n📧 Email #3'],['Day 8','📞 Call\n💬 SMS'],['Day 10','📧 Email #4\n💼 LinkedIn'],['Day 12','📞 Call\n🚪 Door knock'],['Day 14','📧 Break-up\n📞 Final call']];
+  return h('div',null,
+    h('div',{className:'sh2',style:{marginBottom:3}},'Outreach Cadence 📅'),
+    h('div',{className:'sub'},'14-day multi-touch sequences per lead'),
+    h('div',{className:'card'},
+      h('div',{className:'ct'},'📖 The 14-Day Cadence'),
+      h('div',{className:'cp-plan'},plan.map(([d,a])=>h('div',{key:d,className:'cp-item'},h('div',{className:'cp-day'},d),h('div',{className:'cp-act'},a))))
+    ),
+    active.length===0
+      ?h('div',{style:{textAlign:'center',padding:28,color:'var(--tx3)',fontSize:12}},'No active leads — import a CSV to get started')
+      :active.map(l=>{
+        const done=db.activities.filter(a=>a.leadId===l.id).map(a=>Number(a.day));
+        return h('div',{key:l.id,className:'cd-row'},
+          h('div',{className:'cd-name'},h('span',{className:'seg-'+l.seg.toLowerCase()},'['+l.seg+']'),h('span',{style:{marginLeft:6}},l.name),h('div',{style:{fontSize:10,color:'var(--tx3)'}},l.company)),
+          h('div',{className:'cd-dots'},CDAYS.map(d=>h('div',{key:d,className:'ddot'+(done.includes(d)?' dd':' df')},d))),
+          h('span',{className:'pill'+(done.length>=7?' p-won':done.length>=3?' p-working':' p-new'),style:{fontSize:10}},done.length+'/7'),
+          h('button',{className:'btn btn-ok btn-sm',onClick:()=>go('chat')},'💬 Log')
+        );
+      })
+  );
+}
+
+// ════════════════════════════════════════════
+// CSV IMPORT
+// ════════════════════════════════════════════
+function ImportCSV({db,upd,toast,go}){
+  const[phase,setPhase]=useState('upload');
+  const[proc,setProc]=useState([]);
+  const[sum,setSum]=useState({total:0,a:0,b:0,c:0});
+  const[fn,setFn]=useState('');
+
+  function parseLine(l){const r=[];let c='',q=false;for(const ch of l){if(ch==='"'){q=!q;}else if(ch===','&&!q){r.push(c.trim());c='';}else c+=ch;}r.push(c.trim());return r;}
+
+  function runCSV(text,fname){
+    setFn(fname); setPhase('processing');
+    setTimeout(()=>{
+      const lines=text.trim().split('\n').filter(Boolean);
+      if(lines.length<2){toast('⚠️ CSV needs at least 2 rows');setPhase('upload');return;}
+      const hdrs=parseLine(lines[0]);
+      const rows=lines.slice(1).map(l=>{const v=parseLine(l);const o={};hdrs.forEach((h,i)=>o[h]=(v[i]||'').trim());return o;});
+      const map={},used=new Set();
+      const fc=hdrs.find(x=>/first.?name/i.test(x)),lc=hdrs.find(x=>/last.?name/i.test(x));
+      if(fc){map[fc]='first_name';used.add('first_name');}
+      if(lc){map[lc]='last_name';used.add('last_name');}
+      hdrs.forEach(hh=>{
+        if(map[hh])return;
+        const hl=hh.toLowerCase().trim();let bf='',bs=0;
+        for(const[f,ps]of Object.entries(FP)){if(used.has(f))continue;for(const p of ps){const sc=hl===p?4:hl.includes(p)||p.includes(hl)?3:lev(hl,p)<=2?2:0;if(sc>bs){bs=sc;bf=f;}}}
+        if(bf&&bs>=2){map[hh]=bf;used.add(bf);}else map[hh]='';
+      });
+      const seen=new Set(),ek=new Set(db.leads.map(l=>`${l.name.toLowerCase()}|${l.company.toLowerCase()}`));
+      const result=rows.map(row=>{
+        const m={};
+        for(const[col,field]of Object.entries(map)){if(!field||!row[col])continue;if(field==='first_name')m._f=row[col];else if(field==='last_name')m._l=row[col];else m[field]=row[col];}
+        if(m._f||m._l){m.name=[m._f,m._l].filter(Boolean).join(' ');delete m._f;delete m._l;}
+        if(!m.source)m.source='Scraped list';
+        m.seg=scoreSeg(m);
+        const k=`${(m.name||'').toLowerCase()}|${(m.company||'').toLowerCase()}`;
+        m._dup=seen.has(k)||ek.has(k)||(!m.name&&!m.company);
+        if(k!=='|')seen.add(k);
+        return m;
+      });
+      setProc(result); setPhase('preview');
+    },700);
+  }
+
+  function loadSample(t){const s=SAMPLES[t];const text=[s.h.join(','),...s.r.map(r=>r.join(','))].join('\n');runCSV(text,t+'_export.csv');}
+
+  function doImport(){
+    const nl=proc.filter(r=>!r._dup&&(r.name||r.company));
+    const a=nl.filter(r=>r.seg==='A').length,b=nl.filter(r=>r.seg==='B').length,c=nl.filter(r=>r.seg==='C').length;
+    upd(p=>({...p,leads:[...p.leads,...nl.map(r=>({id:Date.now()+Math.random(),name:r.name||'',company:r.company||'',role:r.role||'',phone:r.phone||'',email:r.email||'',seg:r.seg,source:r.source,status:'New',createdAt:TODAY(),notes:''}))]}));
+    setSum({total:nl.length,a,b,c}); setPhase('done'); toast('🎉 '+nl.length+' leads imported!');
+  }
+
+  const nc=proc.filter(r=>!r._dup).length, dc=proc.filter(r=>r._dup).length;
+
+  if(phase==='upload') return h('div',null,
+    h('div',{className:'fb'},h('div',null,h('div',{className:'sh2'},'Import Leads 📥'),h('div',{className:'sub'},'Drop any CSV — AI maps columns and segments automatically')),h('span',{className:'aibadge'},'✨ AI-powered')),
+    h('div',{className:'card'},
+      h('div',{className:'uz',
+        onDragOver:ev=>{ev.preventDefault();ev.currentTarget.style.borderColor='var(--ac)';ev.currentTarget.style.background='var(--acl)';},
+        onDragLeave:ev=>{ev.currentTarget.style.borderColor='var(--bd2)';ev.currentTarget.style.background='var(--bg)';},
+        onDrop:ev=>{ev.preventDefault();ev.currentTarget.style.borderColor='var(--bd2)';ev.currentTarget.style.background='var(--bg)';const f=ev.dataTransfer.files[0];if(f?.name.endsWith('.csv')){const r=new FileReader();r.onload=x=>runCSV(x.target.result,f.name);r.readAsText(f);}else toast('⚠️ Please drop a .csv file');}},
+        h('input',{type:'file',accept:'.csv',onChange:ev=>{const f=ev.target.files?.[0];if(f){const r=new FileReader();r.onload=x=>runCSV(x.target.result,f.name);r.readAsText(f);}},style:{position:'absolute',inset:0,opacity:0,cursor:'pointer'}}),
+        h('div',{style:{fontSize:34,marginBottom:10}},'📂'),
+        h('div',{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:15,color:'var(--tx)',marginBottom:5}},'Drop your CSV here or click to browse'),
+        h('div',{style:{fontSize:12,color:'var(--tx2)',marginBottom:13}},'Any column names — AI figures it out instantly'),
+        h('div',{style:{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap'}},['LinkedIn Sales Navigator','Apollo.io','Google Sheets','Excel','Manual list'].map(s=>h('span',{key:s,style:{background:'var(--bg3)',border:'1px solid var(--bd)',borderRadius:20,padding:'3px 10px',fontSize:10,color:'var(--tx2)'}},s)))
+      )
+    ),
+    h('div',{className:'card',style:{borderColor:'var(--acm)'}},
+      h('div',{className:'ct'},'🧪 Try with sample data'),
+      h('div',{style:{fontSize:12,color:'var(--tx2)',marginBottom:12}},'No CSV? Load a sample to see AI segmentation in action.'),
+      h('div',{className:'fr'},h('button',{className:'btn btn-s',onClick:()=>loadSample('apollo')},'Apollo.io export'),h('button',{className:'btn btn-s',onClick:()=>loadSample('linkedin')},'LinkedIn Sales Nav'),h('button',{className:'btn btn-s',onClick:()=>loadSample('manual')},'Manual spreadsheet'))
+    )
+  );
+
+  if(phase==='processing') return h('div',null,
+    h('div',{className:'sh2',style:{marginBottom:14}},'Import Leads 📥'),
+    h('div',{className:'ai-proc'},h('div',{className:'spinner'}),h('div',null,h('div',{style:{fontWeight:600,fontSize:13}},fn),h('div',{style:{fontSize:12,color:'var(--tx2)',marginTop:2}},'AI reading columns and scoring every lead...'))),
+    h('div',{className:'proc-bar'},h('div',{className:'proc-fill'}))
+  );
+
+  if(phase==='preview') return h('div',null,
+    h('div',{className:'fb'},h('div',null,h('div',{className:'sh2'},'Import Leads 📥'),h('div',{className:'sub'},fn+' · Segmented and ready')),h('button',{className:'btn btn-s btn-sm',onClick:()=>{setPhase('upload');setProc([]);}},'← Start over')),
+    h('div',{className:'sbar'},[['📊 Total rows',proc.length,''],['✅ New leads',nc,'g'],['⚠️ Already in system',dc,'am'],['🎯 A-segment (Belfast ICP)',proc.filter(r=>r.seg==='A'&&!r._dup).length,'g']].map(([l,v,c])=>h('div',{key:String(l),className:'sbox'},h('div',{className:'sbl'},l),h('div',{className:'sbv'+(c?' '+c:'')},v)))),
+    h('div',{className:'card',style:{padding:0,overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid var(--bd)',display:'flex',alignItems:'center',justifyContent:'space-between'}},h('div',{className:'ct',style:{marginBottom:0}},'Preview — '+Math.min(proc.length,50)+' rows'),h('span',{className:'aibadge'},'✨ Auto-segmented')),
+      h('div',{style:{overflowX:'auto',maxHeight:260,overflowY:'auto'}},
+        h('table',{className:'dt',style:{minWidth:560}},
+          h('thead',null,h('tr',null,h('th',null,'Seg'),h('th',null,'Name'),h('th',null,'Company'),h('th',null,'Role'),h('th',null,'Location'),h('th',null,'Email'),h('th',null,'Status'))),
+          h('tbody',null,proc.slice(0,50).map((r,i)=>h('tr',{key:i,style:{opacity:r._dup?.45:1}},
+            h('td',null,h('span',{className:'pill p-'+r.seg.toLowerCase()},r.seg)),
+            h('td',null,h('strong',null,r.name||'—')),
+            h('td',{style:{color:'var(--tx2)'}},r.company||'—'),
+            h('td',{style:{color:'var(--tx2)',fontSize:11}},r.role||'—'),
+            h('td',{style:{color:'var(--tx2)',fontSize:11}},r.location||'—'),
+            h('td',{style:{color:'var(--tx3)',fontSize:11}},r.email||'—'),
+            h('td',null,r._dup?h('span',{className:'pill p-dup'},'Already added'):h('span',{className:'pill p-new'},'New'))
+          )))
+        )
+      )
+    ),
+    h('div',{style:{display:'flex',justifyContent:'flex-end',gap:9,marginTop:13}},h('button',{className:'btn btn-s',onClick:()=>{setPhase('upload');setProc([]);}},'← Start over'),h('button',{className:'btn btn-ok',style:{fontSize:12,padding:'8px 20px'},onClick:doImport},'✅ Import '+nc+' leads →'))
+  );
+
+  return h('div',{className:'card',style:{textAlign:'center',padding:48,borderColor:'var(--acm)'}},
+    h('div',{style:{fontSize:44,marginBottom:13}},'🎉'),
+    h('h2',{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:20,marginBottom:7}},'Import Complete!'),
+    h('div',{style:{fontSize:13,color:'var(--tx2)',marginBottom:22}},sum.total+' leads added · '+sum.a+' A-segment · '+sum.b+' B-segment · '+sum.c+' C-segment'),
+    h('div',{className:'fr',style:{justifyContent:'center'}},h('button',{className:'btn btn-s',onClick:()=>{setPhase('upload');setProc([]);setSum({total:0,a:0,b:0,c:0});}},'📥 Import Another CSV'),h('button',{className:'btn btn-p',onClick:()=>go('leads')},'👥 View Leads →'))
+  );
+}
+
+// ════════════════════════════════════════════
+// SCRIPTS LIBRARY
+// ════════════════════════════════════════════
+function Scripts({db,upd,toast}){
+  const[ch,setCh]=useState('All');
+  const[vid,setVid]=useState(null);
+  const[addO,setAddO]=useState(false);
+  const[form,setForm]=useState({name:'',channel:'Call',useCase:'Cold',copy:'',active:true});
+  const channels=['All','Call','Email','LinkedIn','SMS','Voicemail','Door Knock'];
+  const scripts=ch==='All'?db.scripts:db.scripts.filter(s=>s.channel===ch);
+
+  function perf(id){const a=db.activities.filter(x=>x.scriptId===id);const b=a.filter(x=>x.outcome==='Booked meeting'||x.outcome==='Positive reply').length;return{total:a.length,booked:b,rate:a.length>0?Math.round(b/a.length*100):0};}
+  function save(){if(!form.name||!form.copy){toast('⚠️ Name and copy required');return;}upd(p=>({...p,scripts:[...p.scripts,{...form,id:'s'+Date.now()}]}));toast('✅ Script added!');setAddO(false);setForm({name:'',channel:'Call',useCase:'Cold',copy:'',active:true});}
+  function toggle(id){upd(p=>({...p,scripts:p.scripts.map(s=>s.id===id?{...s,active:!s.active}:s)}));}
+
+  return h('div',null,
+    h('div',{className:'fb'},h('div',null,h('div',{className:'sh2'},'Scripts 📝'),h('div',{className:'sub'},'Script library + live performance. BDO picks a script on every touch.')),h('button',{className:'btn btn-p',onClick:()=>setAddO(true)},'➕ Add Script')),
+    h('div',{className:'ch-filter'},channels.map(c=>h('button',{key:c,className:'ch-btn'+(ch===c?' on':''),onClick:()=>setCh(c)},c))),
+    scripts.map(s=>{
+      const p=perf(s.id);
+      const isW=p.rate>=15&&p.total>=5, isD=p.rate<5&&p.total>=10;
+      return h('div',{key:s.id,className:'script-card'},
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
+          h('span',{className:'pill '+(CPILL[s.channel]||'p-call')},s.channel),
+          h('span',{className:'pill',style:{background:'var(--bg2)',color:'var(--tx2)',border:'1px solid var(--bd)'}},s.useCase),
+          h('div',{style:{fontSize:13,fontWeight:700,color:'var(--tx)',flex:1}},s.name),
+          isW&&h('span',{className:'badge-win'},'🏆 Winner'),
+          isD&&h('span',{className:'badge-kill'},'💀 Kill it'),
+          h('div',{className:'fr'},
+            p.total>0&&h('span',{style:{fontSize:11,color:'var(--tx2)'}},p.booked+'/'+p.total+' = ',h('strong',{style:{color:p.rate>=15?'var(--ac)':p.rate>=8?'var(--am)':'var(--rd)'}},p.rate+'%')),
+            h('button',{className:'btn btn-s btn-sm',onClick:()=>setVid(vid===s.id?null:s.id)},vid===s.id?'Hide':'View script'),
+            h('button',{className:'btn btn-sm',style:{background:s.active?'var(--acl)':'var(--bg3)',color:s.active?'var(--acd)':'var(--tx3)',border:`1px solid ${s.active?'var(--acm)':'var(--bd2)'}`,borderRadius:8,fontWeight:600,padding:'4px 9px',fontSize:11},onClick:()=>toggle(s.id)},s.active?'Active':'Inactive')
+          )
+        ),
+        vid===s.id&&h('div',{className:'script-copy'},s.copy)
+      );
+    }),
+    addO&&h('div',{className:'mbg',onClick:()=>setAddO(false)},
+      h('div',{className:'mbox',onClick:ev=>ev.stopPropagation()},
+        h('div',{className:'mh'},h('h2',null,'Add Script 📝'),h('button',{className:'mc2',onClick:()=>setAddO(false)},'✕')),
+        h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:11}},
+          h('div',{className:'fld',style:{gridColumn:'1/-1'}},h('label',{className:'flbl'},'Script Name'),h('input',{className:'finp',value:form.name,onChange:ev=>setForm(p=>({...p,name:ev.target.value})),placeholder:'e.g. Cold Call Opener D — Question Hook'})),
+          h('div',{className:'fld'},h('label',{className:'flbl'},'Channel'),h('select',{className:'fsel',value:form.channel,onChange:ev=>setForm(p=>({...p,channel:ev.target.value}))},['Call','Email','LinkedIn','SMS','Voicemail','Door Knock'].map(c=>h('option',{key:c},c)))),
+          h('div',{className:'fld'},h('label',{className:'flbl'},'Use Case'),h('select',{className:'fsel',value:form.useCase,onChange:ev=>setForm(p=>({...p,useCase:ev.target.value}))},['Cold','Follow-up','Breakup'].map(u=>h('option',{key:u},u)))),
+          h('div',{className:'fld',style:{gridColumn:'1/-1'}},h('label',{className:'flbl'},'Script Copy'),h('textarea',{className:'ftxt',value:form.copy,onChange:ev=>setForm(p=>({...p,copy:ev.target.value})),placeholder:'Paste the full script here...'}))
+        ),
+        h('div',{style:{display:'flex',gap:9,justifyContent:'flex-end'}},h('button',{className:'btn btn-s',onClick:()=>setAddO(false)},'Cancel'),h('button',{className:'btn btn-p',onClick:save},'Save Script ✓'))
+      )
+    )
+  );
+}
+
+// ════════════════════════════════════════════
+// COMMISSION DASHBOARD
+// ════════════════════════════════════════════
+function Commission({db,upd,toast}){
+  const won=db.deals.filter(d=>d.stage==='Won');
+  const tR=won.reduce((s,d)=>s+d.amount,0);
+  const tC=won.reduce((s,d)=>s+d.amount*d.commRate,0);
+  const uC=won.filter(d=>!d.paid).reduce((s,d)=>s+d.amount*d.commRate,0);
+  const closers={};
+  won.forEach(d=>{if(!closers[d.closer])closers[d.closer]={deals:0,revenue:0,commission:0,unpaid:0};closers[d.closer].deals++;closers[d.closer].revenue+=d.amount;closers[d.closer].commission+=d.amount*d.commRate;if(!d.paid)closers[d.closer].unpaid+=d.amount*d.commRate;});
+  const sp=db.scripts.map(s=>{const a=db.activities.filter(x=>x.scriptId===s.id);const b=a.filter(x=>x.outcome==='Booked meeting'||x.outcome==='Positive reply').length;return{...s,total:a.length,booked:b,rate:a.length>0?Math.round(b/a.length*100):0};}).filter(s=>s.total>0).sort((a,b)=>b.rate-a.rate);
+  function markPaid(id){upd(p=>({...p,deals:p.deals.map(d=>d.id===id?{...d,paid:true}:d)}));toast('✅ Commission marked as paid!');}
+
+  return h('div',null,
+    h('div',{className:'sh2',style:{marginBottom:3}},'Commission & Script Performance 💰'),
+    h('div',{className:'sub'},'Revenue tracking · '+(COMM_RATE*100)+'% commission per closer · Script leaderboard'),
+    h('div',{className:'comm-hero'},
+      h('div',{className:'card',style:{background:'var(--acl)',borderColor:'var(--acm)',marginBottom:0}},h('div',{className:'ml'},'💰 Total Revenue Won'),h('div',{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:28,color:'var(--acd)',lineHeight:1,marginBottom:5}},FMT(tR)),h('div',{className:'ms'},won.length+' deals closed')),
+      h('div',{className:'card',style:{background:'var(--pul)',borderColor:'#ddd6fe',marginBottom:0}},h('div',{className:'ml'},'💜 Total Commission Earned'),h('div',{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:28,color:'var(--pu)',lineHeight:1,marginBottom:5}},FMT(tC)),h('div',{className:'ms'},'@ '+(COMM_RATE*100)+'% of closed deals')),
+      h('div',{className:'card',style:{background:uC>0?'var(--aml)':'var(--acl)',borderColor:uC>0?'#fcd34d':'var(--acm)',marginBottom:0}},h('div',{className:'ml'},'⏳ Unpaid Commission'),h('div',{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:28,color:uC>0?'var(--am)':'var(--acd)',lineHeight:1,marginBottom:5}},FMT(uC)),h('div',{className:'ms'},uC>0?'Needs paying out':'All paid ✅'))
+    ),
+    h('div',{className:'card'},
+      h('div',{className:'ct'},'👤 Commission by Closer'),
+      Object.entries(closers).length===0
+        ?h('div',{style:{textAlign:'center',padding:16,color:'var(--tx3)',fontSize:12}},'No won deals yet')
+        :h('table',{className:'dt'},
+          h('thead',null,h('tr',null,h('th',null,'Closer'),h('th',null,'Deals'),h('th',null,'Revenue'),h('th',null,'Commission'),h('th',null,'Unpaid'))),
+          h('tbody',null,Object.entries(closers).map(([name,d])=>h('tr',{key:name},
+            h('td',null,h('strong',null,name)),h('td',null,d.deals),
+            h('td',{style:{color:'var(--acd)',fontWeight:600}},FMT(d.revenue)),
+            h('td',{style:{color:'var(--pu)',fontWeight:700}},FMT(d.commission)),
+            h('td',{style:{color:d.unpaid>0?'var(--am)':'var(--tx3)',fontWeight:d.unpaid>0?700:400}},FMT(d.unpaid))
+          )))
+        )
+    ),
+    h('div',{className:'card'},
+      h('div',{className:'ct'},'📋 Won Deals — Commission Tracker'),
+      won.length===0
+        ?h('div',{style:{textAlign:'center',padding:16,color:'var(--tx3)',fontSize:12}},'No won deals yet')
+        :h('table',{className:'dt'},
+          h('thead',null,h('tr',null,h('th',null,'Company'),h('th',null,'Closer'),h('th',null,'Amount'),h('th',null,'Commission'),h('th',null,'Terms'),h('th',null,'Status'),h('th',null,''))),
+          h('tbody',null,won.map(d=>h('tr',{key:d.id},
+            h('td',null,h('strong',null,d.company)),
+            h('td',{style:{color:'var(--tx2)'}},d.closer),
+            h('td',{style:{color:'var(--acd)',fontWeight:600}},FMT(d.amount)),
+            h('td',{style:{color:'var(--pu)',fontWeight:700}},FMT(d.amount*d.commRate)),
+            h('td',{style:{color:'var(--tx3)',fontSize:11}},d.terms),
+            h('td',null,d.paid?h('span',{className:'pill p-won'},'✓ Paid'):h('span',{className:'pill p-working'},'Unpaid')),
+            h('td',null,!d.paid&&h('button',{className:'btn btn-ok btn-sm',onClick:()=>markPaid(d.id)},'Mark paid'))
+          )))
+        )
+    ),
+    h('div',{className:'card'},
+      h('div',{className:'ct'},'📊 Script Leaderboard — Meetings Booked per Use'),
+      sp.length===0
+        ?h('div',{style:{textAlign:'center',padding:16,color:'var(--tx3)',fontSize:12}},'Log activities with scripts to see performance here')
+        :sp.map(s=>h('div',{key:s.id,style:{display:'flex',alignItems:'center',gap:10,background:'var(--bg)',border:'1px solid var(--bd)',borderRadius:9,padding:'10px 13px',marginBottom:6}},
+          h('span',{className:'pill '+(CPILL[s.channel]||'p-call'),style:{flexShrink:0}},s.channel),
+          h('div',{style:{fontSize:12,fontWeight:600,color:'var(--tx)',minWidth:180,flex:1}},s.name.split('—')[0].trim()),
+          h('div',{style:{flex:1,margin:'0 12px'}},h('div',{style:{height:6,background:'var(--bg3)',borderRadius:3,overflow:'hidden',border:'1px solid var(--bd)'}},h('div',{style:{height:'100%',borderRadius:3,background:s.rate<5?'var(--rd)':'var(--ac)',width:Math.min(s.rate*3,100)+'%',transition:'width .4s'}}))),
+          h('div',{style:{display:'flex',gap:12,fontSize:11,minWidth:150,justifyContent:'flex-end'}},
+            h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center'}},h('div',{style:{fontWeight:700,fontSize:13,color:s.rate>=15?'var(--ac)':s.rate>=8?'var(--am)':'var(--rd)'}},s.rate+'%'),h('div',{style:{fontSize:9,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.5px'}},'Booked')),
+            h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center'}},h('div',{style:{fontWeight:700,fontSize:13}},s.booked),h('div',{style:{fontSize:9,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.5px'}},'Meetings')),
+            h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center'}},h('div',{style:{fontWeight:700,fontSize:13}},s.total),h('div',{style:{fontSize:9,color:'var(--tx3)',textTransform:'uppercase',letterSpacing:'.5px'}},'Uses'))
+          ),
+          s.rate>=15&&s.total>=5&&h('span',{className:'badge-win',style:{flexShrink:0}},'🏆 Winner'),
+          s.rate<5&&s.total>=10&&h('span',{className:'badge-kill',style:{flexShrink:0}},'💀 Kill it')
+        ))
+    )
+  );
+}
+
+// ════════════════════════════════════════════
+// WEEKLY AI REPORT
+// ════════════════════════════════════════════
+function Report({db}){
+  const[text,setText]=useState('');
+  const[flags,setFlags]=useState([]);
+  const[loading,setLoading]=useState(false);
+  const[gen,setGen]=useState(false);
+  const ago=new Date(); ago.setDate(ago.getDate()-7);
+  const recent=db.activities.filter(a=>new Date(a.loggedAt)>=ago);
+  const won=db.deals.filter(d=>d.stage==='Won');
+  const avg=Math.round(recent.length/7), meet=recent.filter(a=>a.outcome==='Booked meeting').length;
+  const rev=won.reduce((s,d)=>s+d.amount,0), comm=won.reduce((s,d)=>s+d.amount*d.commRate,0);
+
+  async function generate(){
+    setLoading(true); setText(''); setFlags([]); setGen(true);
+    try{
+      const active=db.deals.filter(d=>!['Won','Lost'].includes(d.stage));
+      const tb=recent.reduce((a,x)=>{a[x.type]=(a[x.type]||0)+1;return a;},{});
+      const prompt='Sales analyst for Belfast creative agency. '+FMT(DEAL_AMOUNT)+' video packages. Targets: '+TARGET_ACTIONS+' actions/day, '+TARGET_MEETINGS+' meetings/week, 1 deal/week. Commission: '+(COMM_RATE*100)+'%.\n\nWeek: '+recent.length+' activities (target '+(TARGET_ACTIONS*7)+'), avg '+avg+'/day, '+meet+' meetings (target '+TARGET_MEETINGS+'), '+won.length+' deals won, '+FMT(rev)+' revenue, '+FMT(comm)+' commission earned, '+active.length+' active deals.\nTypes: '+JSON.stringify(tb)+'.\n\nSharp honest 3-paragraph report. Direct startup tone. Under 220 words. Include commission. Emojis sparingly.';
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,stream:true,messages:[{role:'user',content:prompt}]})});
+      const reader=res.body.getReader(); const dec=new TextDecoder(); let full='';
+      while(true){const{done,value}=await reader.read();if(done)break;const lines=dec.decode(value).split('\n');for(const l of lines){if(l.startsWith('data: ')){try{const d=JSON.parse(l.slice(6));if(d.delta?.text){full+=d.delta.text;setText(full);}}catch{}}}}
+      const f=[];
+      if(avg<50)f.push({t:'r',i:'🚨',m:'Critical: Only '+avg+' actions/day vs '+TARGET_ACTIONS+' target.'});
+      else if(avg<80)f.push({t:'w',i:'⚠️',m:'Below target: '+avg+'/day — needs to reach '+TARGET_ACTIONS+'.'});
+      else f.push({t:'g',i:'✅',m:'Strong volume: '+avg+' actions/day.'});
+      if(meet<3)f.push({t:'r',i:'🚨',m:'Only '+meet+' meetings booked (target: '+TARGET_MEETINGS+'). Review scripts.'});
+      else if(meet<TARGET_MEETINGS)f.push({t:'w',i:'⚠️',m:meet+'/'+TARGET_MEETINGS+' meetings — needs improvement.'});
+      else f.push({t:'g',i:'✅',m:'Meeting target hit: '+meet+' booked.'});
+      if(!won.length)f.push({t:'w',i:'⚠️',m:'No deals won this week. '+FMT(comm)+' commission outstanding.'});
+      else f.push({t:'g',i:'✅',m:won.length+' deal(s) closed · '+FMT(rev)+' revenue · '+FMT(comm)+' commission.'});
+      setFlags(f);
+    }catch{setText('Could not generate report. Check your connection and API key.');}
+    setLoading(false);
+  }
+
+  return h('div',null,
+    h('div',{className:'fb'},h('div',null,h('div',{className:'sh2'},'Weekly Report 📊'),h('div',{className:'sub'},'AI-generated · includes commission tracking')),h('button',{className:'btn btn-ai',onClick:generate,disabled:loading},loading?'⏳ Generating...':'✨ Generate Report')),
+    h('div',{className:'mg'},
+      h('div',{className:'mc'},h('div',{className:'ml'},'📞 Activities (7d)'),h('div',{className:'mv'},recent.length)),
+      h('div',{className:'mc'},h('div',{className:'ml'},'📅 Avg / Day'),h('div',{className:'mv'},avg),h('div',{className:'ms'+(avg>=TARGET_ACTIONS?' up':' wn')},avg>=TARGET_ACTIONS?'✅ On target':'Target: '+TARGET_ACTIONS)),
+      h('div',{className:'mc'},h('div',{className:'ml'},'💰 Revenue Won'),h('div',{className:'mv'},FMT(rev))),
+      h('div',{className:'mc'},h('div',{className:'ml'},'💜 Commission'),h('div',{className:'mv',style:{color:'var(--pu)'}},FMT(comm)),h('div',{className:'ms'},'@ '+(COMM_RATE*100)+'%'))
+    ),
+    gen
+      ?h(React.Fragment,null,
+        h('div',{className:'card'},
+          h('div',{className:'ct'},loading&&h('span',{className:'pulse'}),'🤖 AI Sales Report'),
+          h('div',{className:'rw'},h('div',{className:'rt'},text||(loading?'Analysing your week...':'')))
+        ),
+        flags.length>0&&h('div',{className:'card'},
+          h('div',{className:'ct'},'🚩 Flags & Actions Required'),
+          flags.map((f,i)=>h('div',{key:i,className:'rflag '+(f.t==='g'?'g':f.t==='w'?'w':'r')},h('span',{style:{fontSize:16,flexShrink:0}},f.i),h('span',{className:'rft'},f.m)))
+        )
+      )
+      :h('div',{className:'card',style:{textAlign:'center',padding:48,borderColor:'var(--acm)'}},
+        h('div',{style:{fontSize:40,marginBottom:12}},'📊'),
+        h('h3',{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:16,marginBottom:7}},'Ready to review your week?'),
+        h('div',{style:{fontSize:12,color:'var(--tx2)',marginBottom:18}},'AI analysis with revenue, commission, and gap flagging.'),
+        h('button',{className:'btn btn-ai',onClick:generate},"✨ Generate This Week's Report")
+      )
+  );
+}
+
+// ════════════════════════════════════════════
+// MOUNT
+// ════════════════════════════════════════════
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>

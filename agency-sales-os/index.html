@@ -703,8 +703,15 @@ function AILogger({db,upd,toast,onLeadOpen}){
       const sys=`You are an AI sales logger for a Belfast creative video agency (${FMT(DEAL_AMOUNT)} packages, ${COMM_RATE*100}% commission).\nLEADS:\n${lctx}\nACTIVE SCRIPTS:\n${sctx}\nTODAY: ${TODAY()}\nReply ONLY valid JSON:\n{"reply":"friendly reply with emojis","actions":[{"type":"log_activity"|"update_lead_status"|"create_deal"|"add_lead"|"none","data":{...}}]}\nlog_activity:{leadId,leadName,activityType:"Call"|"Voicemail"|"Email"|"LinkedIn"|"Text"|"Door Knock"|"Meeting",outcome:"No answer"|"Left voicemail"|"Spoke – follow-up"|"Spoke – not interested"|"Booked meeting"|"Positive reply"|"No-show"|"Showed",scriptId,cadenceDay:1-14,note}\nupdate_lead_status:{leadId,newStatus}\ncreate_deal:{company,leadName,leadId,stage,amount:${DEAL_AMOUNT},terms:"PIF"|"50/50",closeDate,closer:"BDO"}\nadd_lead:{name,company,role,phone,email,seg,source}\nMention commission when deal created.`;
       const history=[...(db.chatHistory||[]).slice(-8),{role:'user',content:t}];
       const AKEY=localStorage.getItem('sos_api_key')||'';
-      if(!AKEY){setMsgs(p=>{const u=[...p];u[u.length-1]={role:'ai',text:'\u26a0\ufe0f No API key found. Go to \u2699\ufe0f Settings tab and enter your Anthropic API key.'};return u;});setBusy(false);return;}
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':AKEY,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:sys,messages:history})});
+      if(!AKEY){
+        setMsgs(p=>{const u=[...p];u[u.length-1]={role:'ai',text:'No API key set. Go to the Settings tab, paste your Anthropic key (sk-ant-...) and hit Save API Keys.'};return u;});
+        setBusy(false);return;
+      }
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':AKEY,'anthropic-version':'2023-06-01'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:sys,messages:history})
+      });
       const data=await res.json();
       const raw=data.content?.[0]?.text||'{}';
       let parsed; try{parsed=JSON.parse(raw);}catch{parsed={reply:raw,actions:[]};}
@@ -1028,8 +1035,12 @@ function WeeklyReport({db}){
       const tb=recent.reduce((a,x)=>{a[x.type]=(a[x.type]||0)+1;return a;},{});
       const prompt='Sales analyst for Belfast creative agency. '+FMT(DEAL_AMOUNT)+' video packages. Targets: '+TARGET_ACTIONS+' actions/day, '+TARGET_MEETINGS+' meetings/week, 1 deal/week. Commission: '+(COMM_RATE*100)+'%.\n\nWeek: '+recent.length+' activities (target '+(TARGET_ACTIONS*7)+'), avg '+avg+'/day, '+meet+' meetings (target '+TARGET_MEETINGS+'), '+won.length+' deals won, '+FMT(rev)+' revenue, '+FMT(comm)+' commission earned, '+active.length+' active deals.\nTypes: '+JSON.stringify(tb)+'.\n\nWrite a sharp honest 3-paragraph performance report. Direct startup tone. Under 220 words. Include commission. Emojis sparingly.';
       const AKEY2=localStorage.getItem('sos_api_key')||'';
-      if(!AKEY2){setText('\u26a0\ufe0f No API key. Go to \u2699\ufe0f Settings and enter your Anthropic API key.');setLoading(false);return;}
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':AKEY2,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,stream:true,messages:[{role:'user',content:prompt}]})});
+      if(!AKEY2){setText('No API key. Go to Settings tab.');setLoading(false);return;}
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':AKEY2,'anthropic-version':'2023-06-01'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,stream:true,messages:[{role:'user',content:prompt}]})
+      });
       const reader=res.body.getReader();const dec=new TextDecoder();let full='';
       while(true){const{done,value}=await reader.read();if(done)break;const lines=dec.decode(value).split('\n');for(const l of lines){if(l.startsWith('data: ')){try{const d=JSON.parse(l.slice(6));if(d.delta?.text){full+=d.delta.text;setText(full);}}catch{}}}}
       const f=[];
@@ -1186,24 +1197,30 @@ function CallCentral({db,upd,keys,toast,onOpen}){
 // SETTINGS
 // ─────────────────────────────────────────
 function Settings({keys,saveKeys,toast}){
-  const [f,setF]=useState({...keys,anthropicKey:localStorage.getItem('sos_api_key')||''});
-  function save(){saveKeys(f);if(f.anthropicKey)localStorage.setItem('sos_api_key',f.anthropicKey);else localStorage.removeItem('sos_api_key');toast('✅ Keys saved!');}
-  const rcOk=!!(f.rcClientId&&f.rcJwt);const ffOk=!!f.ffApiKey;
+  const [ak,setAk]=useState(()=>localStorage.getItem('sos_api_key')||'');
+  const [f,setF]=useState({...keys});
+  function save(){
+    saveKeys(f);
+    if(ak.trim()) localStorage.setItem('sos_api_key',ak.trim());
+    else localStorage.removeItem('sos_api_key');
+    toast('Keys saved!');
+  }
+  const rcOk=!!(f.rcClientId&&f.rcJwt);const ffOk=!!f.ffApiKey;const akOk=!!ak;
   const Field=({label,k,pw,ph})=>h('div',{className:'fld'},h('label',{className:'flbl'},label),h('input',{className:'finp',type:pw?'password':'text',value:f[k]||'',onChange:e=>setF(p=>({...p,[k]:e.target.value})),placeholder:ph}));
   return h('div',null,
-    h('div',{className:'sh2',style:{marginBottom:3}},'⚙️ Settings'),
-    h('div',{className:'set-sec',style:{borderColor:'var(--acm)',background:'var(--acl)'}},
-      h('div',{className:'set-title'},'🔑 Anthropic API Key — Required',f.anthropicKey?h('span',{className:'conn-badge'},'🟢 Connected'):h('span',{style:{background:'var(--rdl)',color:'var(--rd)',border:'1px solid #fca5a5',borderRadius:20,padding:'3px 10px',fontSize:10,fontWeight:700}},'🔴 Not set')),
-      h('div',{className:'set-sub'},'Powers the AI Logger, script matching, and Weekly Report. Get your key at console.anthropic.com → API Keys → Create Key (starts with sk-ant-)'),
-      h('div',{className:'fld'},h('label',{className:'flbl'},'Anthropic API Key'),h('input',{className:'finp',type:'password',value:f.anthropicKey||'',onChange:e=>setF(p=>({...p,anthropicKey:e.target.value})),placeholder:'sk-ant-api03-...'})),
-      h('div',{className:'info-box',style:{marginTop:9}},'💡 Stored in your browser only — never shared with anyone except Anthropic. Safe for internal team use.')
-    ),
-    h('div',{className:'sh2',style:{marginBottom:3,display:'none'}},'hidden'),h('div',{className:'sub'},'API keys stored in your browser only — never sent anywhere except the respective APIs'),
-    h('div',{className:'set-sec',style:{borderColor:'var(--acm)',background:'var(--acl)'}},
-      h('div',{className:'set-title'},'\ud83d\udd11 Anthropic API Key',f.anthropicKey?h('span',{className:'conn-badge'},'\ud83d\udfe2 Connected'):h('span',{className:'disconn-badge'},'\u26aa Not set')),
-      h('div',{className:'set-sub'},'Required for AI Logger, script matching, and Weekly Report. Get your key at console.anthropic.com \u2192 API Keys \u2192 Create Key'),
-      h('div',{className:'fld'},h('label',{className:'flbl'},'Anthropic API Key'),h('input',{className:'finp',type:'password',value:f.anthropicKey||'',onChange:e=>setF(p=>({...p,anthropicKey:e.target.value})),placeholder:'sk-ant-...'})),
-      h('div',{className:'info-box'},'\ud83d\udca1 Your key is stored in your browser only. Never shared with anyone except Anthropic\'s API. Safe for internal team use.')
+    h('div',{className:'sh2',style:{marginBottom:3}},'Settings'),
+    h('div',{className:'sub'},'API keys stored in your browser only'),
+    h('div',{className:'set-sec',style:{background:akOk?'var(--acl)':'var(--rdl)',borderColor:akOk?'var(--acm)':'#fca5a5'}},
+      h('div',{className:'set-title'},
+        'Anthropic API Key',
+        h('span',{style:{marginLeft:8,display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:20,fontSize:10,fontWeight:700,background:akOk?'var(--acl)':'var(--rdl)',border:'1px solid '+(akOk?'var(--acm)':'#fca5a5'),color:akOk?'var(--acd)':'var(--rd)'}},akOk?'Connected':'NOT SET')
+      ),
+      h('div',{className:'set-sub'},'Required for AI Logger, script matching and Weekly Report. Get your key at console.anthropic.com then API Keys then Create Key. Key starts with sk-ant-'),
+      h('div',{className:'fld'},
+        h('label',{className:'flbl'},'Anthropic API Key'),
+        h('input',{className:'finp',type:'password',value:ak,onChange:e=>setAk(e.target.value),placeholder:'sk-ant-api03-...'})
+      ),
+      h('div',{className:'info-box',style:{marginTop:8}},'Stored in this browser only. Paste your key and click Save API Keys below.')
     ),
     h('div',{className:'set-sec'},
       h('div',{className:'set-title'},'📞 RingCentral',rcOk?h('span',{className:'conn-badge'},'🟢 Configured'):h('span',{className:'disconn-badge'},'⚪ Not configured')),

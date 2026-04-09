@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
+```
+
+Commit that, and Vercel will auto-redeploy and serve the HTML file correctly.
+
+**Your repo root should look like this when done:**
+```
+llm-sales-os/
+├── index.html        ← the app
+├── vercel.json       ← tells Vercel it's static
+├── HANDOFF.md
+└── PROJECT_STATE.md

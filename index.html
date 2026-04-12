@@ -701,16 +701,12 @@ function AILogger({db,upd,toast,onLeadOpen}){
     const t=(text||inp).trim();if(!t||busy)return;
     setInp("");setBusy(true);
     setMsgs(p=>[...p,{role:"user",text:t},{role:"ai",text:"..."}]);
-    const apiKey=getApiKey();
-    if(!apiKey){
-      setMsgs(p=>{const u=[...p];u[u.length-1]={role:"ai",text:"No API key set. Click the ⚙️ gear icon top right, paste your Anthropic key (sk-ant-...) and hit Save."};return u;});
-      setBusy(false);return;
-    }
+    const apiKey=getApiKey(); // kept for backward compat
     const lctx=db.leads.map(l=>"ID:"+l.id+"|"+l.name+"|"+l.company+"|Seg:"+l.seg+"|Stage:"+l.stage).join("\n");
     const sctx=db.scripts.filter(s=>s.active).map(s=>"ID:"+s.id+"|"+s.name+"|"+s.channel).join("\n");
     const sys="You are an AI sales logger for Life Like Media, a Belfast video agency (£6,900 packages, 7% commission).\nLEADS:\n"+lctx+"\nACTIVE SCRIPTS:\n"+sctx+"\nTODAY: "+TODAY()+"\n\nCRITICAL: If the message mentions a name or company that could match 2 or more leads, you MUST respond with action type 'clarify' — never guess. Only log if you are clearly confident (above 80%) which lead is meant. If the message contains [CONFIRMED LEAD: ID:X] use that exact lead ID and name.\n\nReply ONLY valid JSON:\n{\"reply\":\"friendly reply\",\"actions\":[{\"type\":\"log_activity|update_stage|create_lead|clarify|none\",\"data\":{}}]}\n\nlog_activity data: {leadId,leadName,activityType,outcome,scriptId,cadenceDay,note}\nupdate_stage data: {leadId,newStage} — stages are: Prospecting,Contacted,Meeting Booked,On-site,Proposal,Won,Lost\ncreate_lead data: {name,company,role,phone,email,seg,source,stage:\"Prospecting\"}\nclarify data: {matches:[{id,name,company,seg,stage}],originalText}\n\nMention commission (£483) when a deal is marked Won.";
     const history=[...(db.chatHistory||[]).slice(-8),{role:"user",content:t}];
-    fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:history})})
+    fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:history})})
     .then(r=>r.json())
     .then(data=>{
       const raw=data.content&&data.content[0]&&data.content[0].text?data.content[0].text:"{}";
@@ -1060,13 +1056,12 @@ function Report({db}){
   const comm=rev*COMM_RATE;
 
   function generate(){
-    const apiKey=getApiKey();
-    if(!apiKey){setText("No API key set. Click the ⚙️ gear icon top right and add your Anthropic key.");setGen(true);return;}
+    const apiKey=getApiKey(); // kept for backward compat
     setLoading(true);setText("");setFlags([]);setGen(true);
     const active=db.leads.filter(l=>!["Won","Lost"].includes(l.stage));
     const stages=db.leads.reduce((a,l)=>{a[l.stage]=(a[l.stage]||0)+1;return a;},{});
     const prompt="Sales analyst for Life Like Media, a Belfast video agency. £6,900 packages. 7% commission.\n\nTargets: "+TARGET_ACTIONS+" actions/day, "+TARGET_MEETINGS+" meetings/week, 1 deal/week.\n\nThis week:\n- Activities: "+recent.length+" (target "+(TARGET_ACTIONS*7)+")\n- Avg/day: "+avg+" (target "+TARGET_ACTIONS+")\n- Meetings booked: "+meet+" (target "+TARGET_MEETINGS+")\n- Deals won: "+won.length+"\n- Revenue: "+FMT(rev)+"\n- Commission earned: "+FMT(comm)+"\n- Active pipeline: "+active.length+" leads\n- Pipeline by stage: "+JSON.stringify(stages)+"\n\nWrite a sharp honest 3-paragraph performance report. Direct startup tone. Under 220 words. Include commission. Emojis sparingly.";
-    fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,stream:true,messages:[{role:"user",content:prompt}]})})
+    fetch("/api/report",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,stream:true,messages:[{role:"user",content:prompt}]})})
     .then(res=>{
       const reader=res.body.getReader();const dec=new TextDecoder();let full="";
       function read(){return reader.read().then(({done,value})=>{if(done)return;dec.decode(value).split("\n").forEach(l=>{if(l.startsWith("data: ")){try{const d=JSON.parse(l.slice(6));if(d.delta&&d.delta.text){full+=d.delta.text;setText(full);}}catch(e){}}});return read();});}

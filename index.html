@@ -413,6 +413,7 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
   const [wonModal,setWonModal]=useState(false);
   const [wonAmt,setWonAmt]=useState("6900");
   const [wonTerms,setWonTerms]=useState("Full Pay");
+  const [wonDeposit,setWonDeposit]=useState("");
   if(!lead) return null;
 
   const acts=db.activities.filter(a=>a.leadId===lead.id).sort((a,b)=>new Date(b.loggedAt)-new Date(a.loggedAt));
@@ -489,7 +490,12 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Pipeline Stage"),
           h("div",{className:"spills"},STAGES.map(s=>h("button",{key:s,className:"spill "+(STAGE_SPILL[s]||"")+(lead.stage===s?" on":""),onClick:()=>{
-              if(s==="Won"){setWonModal(true);}
+              if(s==="Won"){
+                setWonAmt(String(lead.dealAmount||6900));
+                setWonTerms(lead.dealTerms||"Full Pay");
+                setWonDeposit(String(lead.depositAmount||""));
+                setWonModal(true);
+              }
               else{upL("stage",s);toast("Stage → "+s);}
             }},s)))
         ),
@@ -497,6 +503,38 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Segment"),
           h("div",{className:"segpills"},[{k:"A",c:"sa",l:"A — Perfect ICP"},{k:"B",c:"sb",l:"B — Good fit"},{k:"C",c:"sc",l:"C — Possible"}].map(s=>h("button",{key:s.k,className:"segpill "+s.c+(lead.seg===s.k?" on":""),onClick:()=>{upL("seg",s.k);}},s.l)))
+        ),
+        // DEAL VALUE
+        h("div",{className:"psec"},
+          h("div",{className:"psec-title"},"Deal"),
+          h("div",{className:"eg2"},
+            h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Deal Value (£)"),
+              h("input",{className:"ef-inp",type:"number",value:lead.dealAmount||"",onChange:e=>{
+                const v=e.target.value;
+                upL("dealAmount",v?parseInt(v):undefined);
+              },placeholder:"6900"})
+            ),
+            h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Payment Terms"),
+              h("select",{className:"ef-sel",value:lead.dealTerms||"",onChange:e=>upL("dealTerms",e.target.value)},
+                h("option",{value:""},"— Select —"),
+                h("option",{value:"Full Pay"},"Full Pay"),
+                h("option",{value:"50/50 Split"},"50/50 Split")
+              )
+            ),
+            lead.dealTerms==="50/50 Split"&&h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Deposit Paid (£)"),
+              h("input",{className:"ef-inp",type:"number",value:lead.depositAmount||"",onChange:e=>{
+                const v=e.target.value;
+                upL("depositAmount",v?parseInt(v):undefined);
+              },placeholder:"e.g. 3450"})
+            ),
+            (lead.dealAmount)&&h("div",{style:{background:"var(--pul)",border:"1px solid #ddd6fe",borderRadius:8,padding:"8px 11px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              h("span",{style:{fontSize:11,color:"var(--pu)",fontWeight:600}},"💜 Commission"),
+              h("span",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:16,color:"var(--pu)"}},FMT((lead.dealAmount||0)*COMM_RATE))
+            )
+          )
         ),
         // CADENCE
         h("div",{className:"psec"},
@@ -581,19 +619,28 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
             h("label",{className:"flbl"},"Payment Terms"),
             h("div",{style:{display:"flex",gap:8,marginTop:4}},
               ["Full Pay","50/50 Split"].map(t=>h("button",{key:t,className:"btn "+(wonTerms===t?"btn-p":"btn-s"),style:{flex:1},onClick:()=>setWonTerms(t)},t))
+            ),
+            wonTerms==="50/50 Split"&&h("div",{className:"fld",style:{marginTop:10}},
+              h("label",{className:"flbl"},"Deposit Paid Now (£)"),
+              h("input",{className:"finp",type:"number",value:wonDeposit,onChange:e=>setWonDeposit(e.target.value),placeholder:"e.g. 3450"})
             )
           ),
-          wonAmt&&h("div",{style:{background:"var(--pul)",border:"1px solid #ddd6fe",borderRadius:9,padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-            h("span",{style:{fontSize:12,color:"var(--pu)",fontWeight:600}},"💜 Commission"),
-            h("span",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:18,color:"var(--pu)"}},FMT((parseInt(wonAmt)||6900)*COMM_RATE))
+          wonAmt&&h("div",{style:{background:"var(--pul)",border:"1px solid #ddd6fe",borderRadius:9,padding:"11px 14px"}},
+            h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              h("span",{style:{fontSize:12,color:"var(--pu)",fontWeight:600}},"💜 Commission (on total)"),
+              h("span",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:18,color:"var(--pu)"}},FMT((parseInt(wonAmt)||6900)*COMM_RATE))
+            ),
+            wonTerms==="50/50 Split"&&h("div",{style:{fontSize:11,color:"var(--pu)",marginTop:5,opacity:.75}},"Commission earned on full deal regardless of payment schedule")
           )
         ),
         h("div",{style:{display:"flex",gap:8,justifyContent:"flex-end"}},
           h("button",{className:"btn btn-s",onClick:()=>setWonModal(false)},"Cancel"),
           h("button",{className:"btn btn-p",onClick:()=>{
             const dealAmt=parseInt(wonAmt)||6900;
-            upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:wonTerms}:l)}));
-            toast("🏆 Won! "+FMT(dealAmt)+" · "+wonTerms);
+            const depAmt=wonTerms==="50/50 Split"&&wonDeposit?parseInt(wonDeposit)||0:0;
+            upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:wonTerms,depositAmount:depAmt||undefined}:l)}));
+            const msg=wonTerms==="50/50 Split"&&depAmt?"🏆 Won! "+FMT(dealAmt)+" total · "+FMT(depAmt)+" deposit paid · "+FMT(dealAmt*COMM_RATE)+" commission":"🏆 Won! "+FMT(dealAmt)+" · Full Pay · "+FMT(dealAmt*COMM_RATE)+" commission";
+            toast(msg);
             setWonModal(false);
             onClose();
           }},"Confirm Won ✓")
@@ -745,7 +792,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
     const apiKey=getApiKey(); // kept for backward compat
     const lctx=db.leads.map(l=>"ID:"+l.id+"|"+l.name+"|"+l.company+"|Seg:"+l.seg+"|Stage:"+l.stage).join("\n");
     const sctx=db.scripts.filter(s=>s.active).map(s=>"ID:"+s.id+"|"+s.name+"|"+s.channel).join("\n");
-    const sys="You are an AI sales logger for Life Like Media, a Belfast video agency (£6,900 packages, 7% commission).\nLEADS:\n"+lctx+"\nACTIVE SCRIPTS:\n"+sctx+"\nTODAY: "+TODAY()+"\n\nCRITICAL: If the message mentions a name or company that could match 2 or more leads, you MUST respond with action type clarify — never guess. Only log if you are clearly confident (above 80%) which lead is meant. If the message contains [CONFIRMED LEAD: ID:X] use that exact lead ID and name.\n\nReply ONLY valid JSON:\n{reply: friendly reply, actions: [{type: log_activity or update_stage or create_lead or clarify or none, data: {}}]}\n\nlog_activity data: {leadId, leadName, activityType, outcome, scriptId, cadenceDay, note}\nupdate_stage data: {leadId, newStage, dealAmount, dealTerms} — stages: Prospecting, Contacted, Meeting Booked, Proposal Sent, Won, Lost. If Won extract dealAmount (number) and dealTerms (Full Pay or 50/50 Split).\ncreate_lead data: {name, company, role, phone, email, seg, source, stage: Prospecting}\nclarify data: {matches: [{id, name, company, seg, stage}], originalText}\n\nMention commission (£483) when a deal is marked Won.";
+    const sys="You are an AI sales logger for Life Like Media, a Belfast video agency. Standard deal is £6,900 but deals can vary.\n\nLEADS:\n"+lctx+"\n\nACTIVE SCRIPTS:\n"+sctx+"\n\nTODAY: "+TODAY()+"\n\nCRITICAL RULES:\n1. If 2+ leads match a name/company, use action type clarify — never guess.\n2. If message contains [CONFIRMED LEAD: ID:X] use that exact lead.\n3. For deal terms: ONLY use 50/50 Split if the person explicitly says split payment, deposit only, or will pay rest later. Full Pay means the entire amount was paid upfront. A partial amount paid (like 2000 deposit on a 5000 deal) = 50/50 Split. Record the TOTAL deal value as dealAmount, not the deposit amount.\n4. Commission is always 7% of the TOTAL deal value.\n\nReply ONLY valid JSON:\n{reply: message, actions: [{type: log_activity or update_stage or create_lead or clarify or none, data: {}}]}\n\nlog_activity: {leadId, leadName, activityType, outcome, scriptId, cadenceDay, note}\nupdate_stage: {leadId, newStage, dealAmount, dealTerms, depositAmount} — newStage options: Prospecting Contacted Meeting Booked Proposal Sent Won Lost. dealAmount = TOTAL deal value. dealTerms = Full Pay or 50/50 Split. depositAmount = amount paid now if split.\ncreate_lead: {name, company, role, phone, email, seg, source, stage: Prospecting}\nclarify: {matches: [{id, name, company, seg, stage}], originalText}\n\nWhen a deal is Won always show: total deal value, terms, deposit paid if applicable, and commission (7% of total).";
     const history=[...(db.chatHistory||[]).slice(-8),{role:"user",content:t}];
     fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:history})})
     .then(r=>r.json())
@@ -775,7 +822,15 @@ function AILogger({db,upd,toast,onLeadOpen}){
               affectedId=lead.id;const old=lead.stage;lead.stage=a.data.newStage;
               if(a.data.dealAmount) lead.dealAmount=a.data.dealAmount;
               if(a.data.dealTerms) lead.dealTerms=a.data.dealTerms;
-              cards.push({action:"Stage updated",details:{Lead:lead.name,From:old,To:lead.stage,...(a.data.dealAmount?{Amount:FMT(a.data.dealAmount),Terms:a.data.dealTerms||"Full Pay",Commission:FMT((a.data.dealAmount)*COMM_RATE)}:{})}});
+              if(a.data.depositAmount) lead.depositAmount=a.data.depositAmount;
+              const det={Lead:lead.name,From:old,To:lead.stage};
+              if(a.data.dealAmount){
+                det["Total Deal"]=FMT(a.data.dealAmount);
+                det["Terms"]=a.data.dealTerms||"Full Pay";
+                if(a.data.depositAmount&&a.data.dealTerms==="50/50 Split") det["Deposit Paid"]=FMT(a.data.depositAmount);
+                det["Commission"]=FMT(a.data.dealAmount*COMM_RATE);
+              }
+              cards.push({action:"Stage updated",details:det});
             }
           }
           if(a.type==="create_lead"&&a.data){
@@ -897,8 +952,9 @@ function Pipeline({db,upd,toast,onOpen,onImport}){
                 h("span",{className:"seg-"+l.seg.toLowerCase(),style:{fontSize:11}},l.seg),
                 h("span",{style:{fontSize:9,color:"var(--tx3)"}},db.activities.filter(a=>a.leadId===l.id).length+" touches")
               ),
+              l.dealAmount&&stage!=="Won"&&h("div",{style:{fontSize:10,color:"var(--tx2)",marginTop:4}},FMT(l.dealAmount)+(l.dealTerms?" · "+l.dealTerms:"")),
               stage==="Won"&&h("div",{className:"kba"},FMT(l.dealAmount||6900)),
-              stage==="Won"&&h("div",{className:"kbc"},"💜 "+FMT((l.dealAmount||6900)*COMM_RATE)+" commission · "+(l.dealTerms||"Full Pay"))
+              stage==="Won"&&h("div",{className:"kbc"},"💜 "+FMT((l.dealAmount||6900)*COMM_RATE)+" · "+(l.dealTerms||"Full Pay"))
             ))
           ),
           !["Won","Lost"].includes(stage)&&h("div",{className:"k-add",onClick:()=>{setAddCol(stage);setAddForm({name:"",company:"",phone:"",role:"",seg:"A"});}},

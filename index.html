@@ -410,6 +410,9 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
   const lead=db.leads.find(l=>l.id===leadId);
   const [logOpen,setLogOpen]=useState(false);
   const [lf,setLf]=useState({type:"Call",outcome:"No answer",scriptId:"",day:1,note:""});
+  const [wonModal,setWonModal]=useState(false);
+  const [wonAmt,setWonAmt]=useState("6900");
+  const [wonTerms,setWonTerms]=useState("Full Pay");
   if(!lead) return null;
 
   const acts=db.activities.filter(a=>a.leadId===lead.id).sort((a,b)=>new Date(b.loggedAt)-new Date(a.loggedAt));
@@ -486,18 +489,8 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Pipeline Stage"),
           h("div",{className:"spills"},STAGES.map(s=>h("button",{key:s,className:"spill "+(STAGE_SPILL[s]||"")+(lead.stage===s?" on":""),onClick:()=>{
-              if(s==="Won"){
-                const amt=prompt("Deal amount (£)?","6900");
-                if(amt===null)return; // cancelled
-                const terms=confirm("Split payment? OK = 50% Deposit + 50% on Completion\nCancel = Full payment upfront")?"50/50 Split":"Full Pay";
-                const dealAmt=parseInt(amt.replace(/[^0-9]/g,""))||6900;
-                upd(p=>({...p,
-                  leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:terms}:l)
-                }));
-                toast("🏆 Won! "+FMT(dealAmt)+" · "+terms);
-              } else {
-                upL("stage",s);toast("Stage → "+s);
-              }
+              if(s==="Won"){setWonModal(true);}
+              else{upL("stage",s);toast("Stage → "+s);}
             }},s)))
         ),
         // SEGMENT
@@ -569,6 +562,41 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
                 )
               );
             })
+        )
+      )
+    ),
+    wonModal&&h("div",{className:"mbg",onClick:()=>setWonModal(false)},
+      h("div",{className:"mbox",style:{width:380},onClick:e=>e.stopPropagation()},
+        h("div",{className:"mh"},
+          h("h2",null,"🏆 Mark as Won"),
+          h("button",{className:"mc2",onClick:()=>setWonModal(false)},"✕")
+        ),
+        h("div",{style:{marginBottom:14}},
+          h("div",{style:{fontSize:12,color:"var(--tx2)",marginBottom:12}},"Confirm the deal details for ",h("strong",null,lead.name)),
+          h("div",{className:"fld",style:{marginBottom:10}},
+            h("label",{className:"flbl"},"Deal Amount (£)"),
+            h("input",{className:"finp",type:"number",value:wonAmt,onChange:e=>setWonAmt(e.target.value),placeholder:"6900"})
+          ),
+          h("div",{className:"fld",style:{marginBottom:14}},
+            h("label",{className:"flbl"},"Payment Terms"),
+            h("div",{style:{display:"flex",gap:8,marginTop:4}},
+              ["Full Pay","50/50 Split"].map(t=>h("button",{key:t,className:"btn "+(wonTerms===t?"btn-p":"btn-s"),style:{flex:1},onClick:()=>setWonTerms(t)},t))
+            )
+          ),
+          wonAmt&&h("div",{style:{background:"var(--pul)",border:"1px solid #ddd6fe",borderRadius:9,padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            h("span",{style:{fontSize:12,color:"var(--pu)",fontWeight:600}},"💜 Commission"),
+            h("span",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:18,color:"var(--pu)"}},FMT((parseInt(wonAmt)||6900)*COMM_RATE))
+          )
+        ),
+        h("div",{style:{display:"flex",gap:8,justifyContent:"flex-end"}},
+          h("button",{className:"btn btn-s",onClick:()=>setWonModal(false)},"Cancel"),
+          h("button",{className:"btn btn-p",onClick:()=>{
+            const dealAmt=parseInt(wonAmt)||6900;
+            upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:wonTerms}:l)}));
+            toast("🏆 Won! "+FMT(dealAmt)+" · "+wonTerms);
+            setWonModal(false);
+            onClose();
+          }},"Confirm Won ✓")
         )
       )
     )
@@ -717,7 +745,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
     const apiKey=getApiKey(); // kept for backward compat
     const lctx=db.leads.map(l=>"ID:"+l.id+"|"+l.name+"|"+l.company+"|Seg:"+l.seg+"|Stage:"+l.stage).join("\n");
     const sctx=db.scripts.filter(s=>s.active).map(s=>"ID:"+s.id+"|"+s.name+"|"+s.channel).join("\n");
-    const sys="You are an AI sales logger for Life Like Media, a Belfast video agency (£6,900 packages, 7% commission).\nLEADS:\n"+lctx+"\nACTIVE SCRIPTS:\n"+sctx+"\nTODAY: "+TODAY()+"\n\nCRITICAL: If the message mentions a name or company that could match 2 or more leads, you MUST respond with action type 'clarify' — never guess. Only log if you are clearly confident (above 80%) which lead is meant. If the message contains [CONFIRMED LEAD: ID:X] use that exact lead ID and name.\n\nReply ONLY valid JSON:\n{\"reply\":\"friendly reply\",\"actions\":[{\"type\":\"log_activity|update_stage|create_lead|clarify|none\",\"data\":{}}]}\n\nlog_activity data: {leadId,leadName,activityType,outcome,scriptId,cadenceDay,note}\nupdate_stage data: {leadId,newStage,dealAmount?,dealTerms?} — stages are: Prospecting,Contacted,Meeting Booked,Proposal Sent,Won,Lost. If newStage is Won, extract dealAmount (number) and dealTerms ("Full Pay" or "50/50 Split") from the message if mentioned.\ncreate_lead data: {name,company,role,phone,email,seg,source,stage:\"Prospecting\"}\nclarify data: {matches:[{id,name,company,seg,stage}],originalText}\n\nMention commission (£483) when a deal is marked Won.";
+    const sys="You are an AI sales logger for Life Like Media, a Belfast video agency (£6,900 packages, 7% commission).\nLEADS:\n"+lctx+"\nACTIVE SCRIPTS:\n"+sctx+"\nTODAY: "+TODAY()+"\n\nCRITICAL: If the message mentions a name or company that could match 2 or more leads, you MUST respond with action type clarify — never guess. Only log if you are clearly confident (above 80%) which lead is meant. If the message contains [CONFIRMED LEAD: ID:X] use that exact lead ID and name.\n\nReply ONLY valid JSON:\n{reply: friendly reply, actions: [{type: log_activity or update_stage or create_lead or clarify or none, data: {}}]}\n\nlog_activity data: {leadId, leadName, activityType, outcome, scriptId, cadenceDay, note}\nupdate_stage data: {leadId, newStage, dealAmount, dealTerms} — stages: Prospecting, Contacted, Meeting Booked, Proposal Sent, Won, Lost. If Won extract dealAmount (number) and dealTerms (Full Pay or 50/50 Split).\ncreate_lead data: {name, company, role, phone, email, seg, source, stage: Prospecting}\nclarify data: {matches: [{id, name, company, seg, stage}], originalText}\n\nMention commission (£483) when a deal is marked Won.";
     const history=[...(db.chatHistory||[]).slice(-8),{role:"user",content:t}];
     fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:history})})
     .then(r=>r.json())
@@ -821,18 +849,8 @@ function Pipeline({db,upd,toast,onOpen,onImport}){
     e.preventDefault();document.querySelectorAll(".kcol").forEach(c=>c.classList.remove("dov"));
     if(dragId.current===null)return;
     const id=dragId.current;
-    if(stage==="Won"){
-      const amt=prompt("Deal amount (£)?","6900");
-      if(amt!==null){
-        const terms=confirm("Split payment? OK = 50% Deposit + 50% on Completion\nCancel = Full payment upfront")?"50/50 Split":"Full Pay";
-        const dealAmt=parseInt(amt.replace(/[^0-9]/g,""))||6900;
-        upd(p=>({...p,leads:p.leads.map(l=>l.id===id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:terms}:l)}));
-        toast("🏆 Won! "+FMT(dealAmt)+" · "+terms);
-      }
-    } else {
-      upd(p=>({...p,leads:p.leads.map(l=>l.id===id?{...l,stage}:l)}));
-      toast("Moved to "+stage);
-    }
+    upd(p=>({...p,leads:p.leads.map(l=>l.id===id?{...l,stage}:l)}));
+    toast("Moved to "+stage);
     dragId.current=null;
   }
 

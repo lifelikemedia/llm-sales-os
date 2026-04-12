@@ -291,6 +291,21 @@ input,select,textarea{font-family:Arial,Helvetica,sans-serif;}
 .nokey-badge{display:inline-flex;align-items:center;gap:5px;background:var(--rdl);border:1px solid #fca5a5;border-radius:20px;padding:3px 10px;font-size:10px;color:var(--rd);font-weight:700;}
 .info-box{background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--tx2);line-height:1.6;margin-top:10px;}
 .script-card{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:13px;margin-bottom:9px;}
+.perf-panel{position:absolute;top:calc(100% + 6px);right:0;width:320px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.12);z-index:200;padding:14px;}
+.perf-tabs{display:flex;gap:4px;margin-bottom:12px;}
+.perf-tab{flex:1;padding:5px;border-radius:7px;font-size:11px;font-weight:600;border:none;background:var(--bg2);color:var(--tx2);cursor:pointer;}
+.perf-tab.on{background:var(--pul);color:var(--pu);border:1px solid #ddd6fe;}
+.perf-row{margin-bottom:10px;}
+.perf-label{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;}
+.perf-lname{color:var(--tx2);font-weight:500;}
+.perf-lval{font-weight:700;color:var(--tx);}
+.perf-bar{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.perf-fill{height:100%;border-radius:3px;transition:width .4s ease;}
+.perf-fill.under{background:var(--rd);}
+.perf-fill.on-track{background:var(--pu);}
+.perf-fill.over{background:var(--ac);}
+.mc-clickable{cursor:pointer;transition:all .15s;position:relative;}
+.mc-clickable:hover{border-color:var(--pu);box-shadow:0 0 0 3px rgba(124,58,237,.08);}
 .script-copy{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--tx);line-height:1.65;white-space:pre-wrap;margin-top:11px;}
 .ch-filter{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
 .ch-btn{padding:4px 11px;border-radius:20px;font-size:11px;border:1px solid var(--bd2);background:var(--bg);color:var(--tx2);cursor:pointer;}
@@ -396,7 +411,7 @@ function defDB(){return{
 };}
 
 function loadDB(){try{const r=localStorage.getItem("sos_v3");if(r)return JSON.parse(r);}catch(e){}return defDB();}
-function loadKeys(){try{const r=localStorage.getItem("sos_keys_v1");if(r)return JSON.parse(r);}catch(e){}return{rcClientId:"",rcClientSecret:"",rcAccountId:"",rcJwt:"",ffApiKey:""};}
+function loadKeys(){try{const r=localStorage.getItem("sos_keys_v1");if(r)return JSON.parse(r);}catch(e){}return{rcClientId:"",rcClientSecret:"",rcAccountId:"",rcJwt:"",ffApiKey:"",targetActions:100,targetMeetings:6,targetDeals:4,targetRevenue:27600};}
 </script>
 
 <script>
@@ -520,11 +535,11 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
               h("select",{className:"ef-sel",value:lead.dealTerms||"",onChange:e=>upL("dealTerms",e.target.value)},
                 h("option",{value:""},"— Select —"),
                 h("option",{value:"Full Pay"},"Full Pay"),
-                h("option",{value:"50/50 Split"},"50/50 Split")
+                h("option",{value:"Split Split"},"Split Split")
               )
             ),
-            lead.dealTerms==="50/50 Split"&&h("div",{className:"ef"},
-              h("div",{className:"ef-lbl"},"Deposit Paid (£)"),
+            lead.dealTerms==="Split Split"&&h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Deposit Paid (£)"+(lead.depositAmount&&lead.dealAmount?" — "+Math.round(lead.depositAmount/lead.dealAmount*100)+"% collected":"")),
               h("input",{className:"ef-inp",type:"number",value:lead.depositAmount||"",onChange:e=>{
                 const v=e.target.value;
                 upL("depositAmount",v?parseInt(v):undefined);
@@ -618,10 +633,10 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
           h("div",{className:"fld",style:{marginBottom:14}},
             h("label",{className:"flbl"},"Payment Terms"),
             h("div",{style:{display:"flex",gap:8,marginTop:4}},
-              ["Full Pay","50/50 Split"].map(t=>h("button",{key:t,className:"btn "+(wonTerms===t?"btn-p":"btn-s"),style:{flex:1},onClick:()=>setWonTerms(t)},t))
+              ["Full Pay","Split Split"].map(t=>h("button",{key:t,className:"btn "+(wonTerms===t?"btn-p":"btn-s"),style:{flex:1},onClick:()=>setWonTerms(t)},t))
             ),
-            wonTerms==="50/50 Split"&&h("div",{className:"fld",style:{marginTop:10}},
-              h("label",{className:"flbl"},"Deposit Paid Now (£)"),
+            wonTerms==="Split Split"&&h("div",{className:"fld",style:{marginTop:10}},
+              h("label",{className:"flbl"},"Deposit Paid Now (£)"+(wonDeposit&&wonAmt?" — "+Math.round(parseInt(wonDeposit)/parseInt(wonAmt)*100)+"% collected":"")),
               h("input",{className:"finp",type:"number",value:wonDeposit,onChange:e=>setWonDeposit(e.target.value),placeholder:"e.g. 3450"})
             )
           ),
@@ -630,16 +645,16 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
               h("span",{style:{fontSize:12,color:"var(--pu)",fontWeight:600}},"💜 Commission (on total)"),
               h("span",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:18,color:"var(--pu)"}},FMT((parseInt(wonAmt)||6900)*COMM_RATE))
             ),
-            wonTerms==="50/50 Split"&&h("div",{style:{fontSize:11,color:"var(--pu)",marginTop:5,opacity:.75}},"Commission earned on full deal regardless of payment schedule")
+            wonTerms==="Split Split"&&h("div",{style:{fontSize:11,color:"var(--pu)",marginTop:5,opacity:.75}},"Commission earned on full deal regardless of payment schedule")
           )
         ),
         h("div",{style:{display:"flex",gap:8,justifyContent:"flex-end"}},
           h("button",{className:"btn btn-s",onClick:()=>setWonModal(false)},"Cancel"),
           h("button",{className:"btn btn-p",onClick:()=>{
             const dealAmt=parseInt(wonAmt)||6900;
-            const depAmt=wonTerms==="50/50 Split"&&wonDeposit?parseInt(wonDeposit)||0:0;
+            const depAmt=wonTerms==="Split Split"&&wonDeposit?parseInt(wonDeposit)||0:0;
             upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:wonTerms,depositAmount:depAmt||undefined}:l)}));
-            const msg=wonTerms==="50/50 Split"&&depAmt?"🏆 Won! "+FMT(dealAmt)+" total · "+FMT(depAmt)+" deposit paid · "+FMT(dealAmt*COMM_RATE)+" commission":"🏆 Won! "+FMT(dealAmt)+" · Full Pay · "+FMT(dealAmt*COMM_RATE)+" commission";
+            const msg=wonTerms==="Split Split"&&depAmt?"🏆 Won! "+FMT(dealAmt)+" total · "+FMT(depAmt)+" deposit paid · "+FMT(dealAmt*COMM_RATE)+" commission":"🏆 Won! "+FMT(dealAmt)+" · Full Pay · "+FMT(dealAmt*COMM_RATE)+" commission";
             toast(msg);
             setWonModal(false);
             onClose();
@@ -652,6 +667,108 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
 </script>
 
 <script>
+// ── PERFORMANCE PANEL ──
+function PerfPanel({db,keys,onClose}){
+  const [view,setView]=useState("daily");
+  const [month,setMonth]=useState(()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");});
+
+  // Targets from settings
+  const tActions=keys.targetActions||TARGET_ACTIONS;
+  const tMeetings=keys.targetMeetings||TARGET_MEETINGS;
+  const tDeals=keys.targetDeals||4;
+  const tRevenue=keys.targetRevenue||27600;
+  const tComm=tRevenue*COMM_RATE;
+
+  // Filter activities by view
+  function getActs(){
+    const now=new Date();
+    if(view==="daily"){
+      return db.activities.filter(a=>a.loggedAt===TODAY());
+    } else if(view==="weekly"){
+      const ago=new Date();ago.setDate(ago.getDate()-7);
+      return db.activities.filter(a=>new Date(a.loggedAt)>=ago);
+    } else {
+      return db.activities.filter(a=>a.loggedAt&&a.loggedAt.startsWith(month));
+    }
+  }
+
+  function getWon(){
+    if(view==="daily") return db.leads.filter(l=>l.stage==="Won"&&l.createdAt===TODAY()).length;
+    if(view==="weekly"){const ago=new Date();ago.setDate(ago.getDate()-7);return db.leads.filter(l=>l.stage==="Won"&&new Date(l.createdAt)>=ago).length;}
+    return db.leads.filter(l=>l.stage==="Won"&&l.createdAt&&l.createdAt.startsWith(month)).length;
+  }
+
+  const acts=getActs();
+  const wonCount=getWon();
+  const wonLeads=db.leads.filter(l=>l.stage==="Won");
+  const meetings=acts.filter(a=>a.outcome==="Booked meeting").length;
+  const rev=view==="monthly"
+    ?db.leads.filter(l=>l.stage==="Won"&&l.createdAt&&l.createdAt.startsWith(month)).reduce((s,l)=>s+(l.dealAmount||6900),0)
+    :wonLeads.reduce((s,l)=>s+(l.dealAmount||6900),0);
+  const comm=rev*COMM_RATE;
+
+  // Scale targets by view
+  const dayScale=view==="daily"?1:view==="weekly"?7:new Date(parseInt(month.split("-")[0]),parseInt(month.split("-")[1]),0).getDate();
+  const actTarget=view==="daily"?tActions:view==="weekly"?tActions*7:tActions*dayScale;
+  const meetTarget=view==="daily"?Math.ceil(tMeetings/5):view==="weekly"?tMeetings:Math.round(tMeetings*4.3);
+  const dealTarget=view==="daily"?Math.ceil(tDeals/30):view==="weekly"?Math.ceil(tDeals/4):tDeals;
+  const revTarget=view==="daily"?Math.round(tRevenue/30):view==="weekly"?Math.round(tRevenue/4):tRevenue;
+  const commTarget=revTarget*COMM_RATE;
+
+  function barClass(actual,target){
+    const pct=target>0?actual/target:0;
+    if(pct>=1) return "over";
+    if(pct>=0.7) return "on-track";
+    return "under";
+  }
+
+  function PerfRow({label,actual,target,fmt,unit}){
+    const pct=target>0?Math.min(actual/target,1.5):0;
+    const cls=barClass(actual,target);
+    const color=cls==="over"?"var(--ac)":cls==="on-track"?"var(--pu)":"var(--rd)";
+    return h("div",{className:"perf-row"},
+      h("div",{className:"perf-label"},
+        h("span",{className:"perf-lname"},label),
+        h("span",{className:"perf-lval",style:{color}},
+          (fmt?FMT(actual):actual)+(unit?" "+unit:""),
+          h("span",{style:{color:"var(--tx3)",fontWeight:400,marginLeft:4}},
+            "/ "+(fmt?FMT(target):target)+(unit?" "+unit:"")
+          )
+        )
+      ),
+      h("div",{className:"perf-bar"},
+        h("div",{className:"perf-fill "+cls,style:{width:Math.min(pct*100,100)+"%"}})
+      )
+    );
+  }
+
+  return h("div",{className:"perf-panel",onClick:e=>e.stopPropagation()},
+    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
+      h("div",{style:{fontSize:12,fontWeight:700,color:"var(--tx)"}},"Performance Tracker"),
+      h("button",{style:{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:15},onClick:onClose},"✕")
+    ),
+    h("div",{className:"perf-tabs"},
+      [["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]].map(([v,l])=>
+        h("button",{key:v,className:"perf-tab"+(view===v?" on":""),onClick:()=>setView(v)},l)
+      )
+    ),
+    view==="monthly"&&h("div",{style:{marginBottom:10}},
+      h("input",{type:"month",value:month,onChange:e=>setMonth(e.target.value),style:{background:"var(--bg2)",border:"1px solid var(--bd2)",borderRadius:8,color:"var(--tx)",padding:"5px 9px",fontSize:11,width:"100%",outline:"none"}})
+    ),
+    h(PerfRow,{label:"📞 Actions",actual:acts.length,target:actTarget}),
+    h(PerfRow,{label:"📅 Meetings",actual:meetings,target:meetTarget}),
+    h(PerfRow,{label:"🏆 Deals Closed",actual:wonCount,target:dealTarget}),
+    h(PerfRow,{label:"💰 Revenue",actual:rev,target:revTarget,fmt:true}),
+    h(PerfRow,{label:"💜 Commission",actual:comm,target:commTarget,fmt:true}),
+    h("div",{style:{marginTop:10,paddingTop:10,borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--tx3)"}},
+      h("span",null,h("span",{style:{color:"var(--rd)",fontWeight:700}},"■")," Under"),
+      h("span",null,h("span",{style:{color:"var(--pu)",fontWeight:700}},"■")," On track"),
+      h("span",null,h("span",{style:{color:"var(--ac)",fontWeight:700}},"■")," Over achieved")
+    )
+  );
+}
+
+
 function App(){
   const [view,setView]=useState("daily");
   const [db,setDB]=useState(()=>loadDB());
@@ -677,7 +794,7 @@ function App(){
     view==="chat"
       ?h("div",{className:"chat-outer"},h(AILogger,{db,upd,toast:shT,onLeadOpen:setOpenLead}))
       :h("div",{className:"content"},
-        view==="daily"&&h(Daily,{db,go:setView,onOpen:setOpenLead}),
+        view==="daily"&&h(Daily,{db,go:setView,onOpen:setOpenLead,keys}),
         view==="pipeline"&&h(Pipeline,{db,upd,toast:shT,onOpen:setOpenLead,onImport:()=>setShowImport(true)}),
         view==="callcentral"&&h(CallCentral,{db,upd,keys,toast:shT,onOpen:setOpenLead}),
         view==="report"&&h(Report,{db})
@@ -690,7 +807,8 @@ function App(){
 }
 
 // ── DAILY DASHBOARD ──
-function Daily({db,go,onOpen}){
+function Daily({db,go,onOpen,keys}){
+  const [perfOpen,setPerfOpen]=useState(false);
   const ta=db.activities.filter(a=>a.loggedAt===TODAY());
   const bk=ta.filter(a=>a.outcome==="Booked meeting").length;
   const won=db.leads.filter(l=>l.stage==="Won");
@@ -714,13 +832,18 @@ function Daily({db,go,onOpen}){
         h("div",{className:"ml"},"📞 Actions Today"),
         h("div",{className:"mv"},cnt),
         h("div",{style:{marginTop:5}},
-          h("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--tx2)",marginBottom:4}},h("span",null,"Target: "+TARGET_ACTIONS),h("span",null,pct+"%")),
+          h("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--tx2)",marginBottom:4}},h("span",null,"Target: "+(keys.targetActions||TARGET_ACTIONS)),h("span",null,pct+"%")),
           h("div",{className:"pb"},h("div",{className:"pf",style:{width:pct+"%"}}))
         )
       ),
       h("div",{className:"mc"},h("div",{className:"ml"},"📅 Meetings Booked"),h("div",{className:"mv"},bk),h("div",{className:"ms"+(bk>=1?" up":"")},bk>=1?"✅ Target hit!":"Target: 1+/day")),
       h("div",{className:"mc"},h("div",{className:"ml"},"🏆 Revenue Won"),h("div",{className:"mv"},FMT(rev)),h("div",{className:"ms"},won.length+" clients")),
-      h("div",{className:"mc"},h("div",{className:"ml"},"💜 Commission"),h("div",{className:"mv",style:{color:"var(--pu)"}},FMT(comm)),h("div",{className:"ms"},"@ 7%"))
+      h("div",{className:"mc mc-clickable",onClick:()=>setPerfOpen(p=>!p),style:{userSelect:"none"}},
+        h("div",{className:"ml"},"💜 Commission",h("span",{style:{fontSize:9,color:"var(--tx3)",marginLeft:5}},"▼")),
+        h("div",{className:"mv",style:{color:"var(--pu)"}},FMT(comm)),
+        h("div",{className:"ms"},"Click for breakdown"),
+        perfOpen&&h(PerfPanel,{db,keys,onClose:()=>setPerfOpen(false)})
+      )
     ),
     h("div",{className:"card"},
       h("div",{className:"ct"},"⚡ Today's Activity Feed",h("span",{style:{fontSize:11,color:"var(--tx3)",fontWeight:400,marginLeft:"auto"}},cnt+" logged")),
@@ -792,7 +915,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
     const apiKey=getApiKey(); // kept for backward compat
     const lctx=db.leads.map(l=>"ID:"+l.id+"|"+l.name+"|"+l.company+"|Seg:"+l.seg+"|Stage:"+l.stage).join("\n");
     const sctx=db.scripts.filter(s=>s.active).map(s=>"ID:"+s.id+"|"+s.name+"|"+s.channel).join("\n");
-    const sys="You are an AI sales logger for Life Like Media, a Belfast video agency. Standard deal is £6,900 but deals can vary.\n\nLEADS:\n"+lctx+"\n\nACTIVE SCRIPTS:\n"+sctx+"\n\nTODAY: "+TODAY()+"\n\nCRITICAL RULES:\n1. If 2+ leads match a name/company, use action type clarify — never guess.\n2. If message contains [CONFIRMED LEAD: ID:X] use that exact lead.\n3. For deal terms: ONLY use 50/50 Split if the person explicitly says split payment, deposit only, or will pay rest later. Full Pay means the entire amount was paid upfront. A partial amount paid (like 2000 deposit on a 5000 deal) = 50/50 Split. Record the TOTAL deal value as dealAmount, not the deposit amount.\n4. Commission is always 7% of the TOTAL deal value.\n\nReply ONLY valid JSON:\n{reply: message, actions: [{type: log_activity or update_stage or create_lead or clarify or none, data: {}}]}\n\nlog_activity: {leadId, leadName, activityType, outcome, scriptId, cadenceDay, note}\nupdate_stage: {leadId, newStage, dealAmount, dealTerms, depositAmount} — newStage options: Prospecting Contacted Meeting Booked Proposal Sent Won Lost. dealAmount = TOTAL deal value. dealTerms = Full Pay or 50/50 Split. depositAmount = amount paid now if split.\ncreate_lead: {name, company, role, phone, email, seg, source, stage: Prospecting}\nclarify: {matches: [{id, name, company, seg, stage}], originalText}\n\nWhen a deal is Won always show: total deal value, terms, deposit paid if applicable, and commission (7% of total).";
+    const sys="You are an AI sales logger for Life Like Media, a Belfast video agency. Standard deal is £6,900 but deals can vary.\n\nLEADS:\n"+lctx+"\n\nACTIVE SCRIPTS:\n"+sctx+"\n\nTODAY: "+TODAY()+"\n\nCRITICAL RULES:\n1. If 2+ leads match a name/company, use action type clarify — never guess.\n2. If message contains [CONFIRMED LEAD: ID:X] use that exact lead.\n3. For deal terms: ONLY use Split Split if the person explicitly says split payment, deposit only, or will pay rest later. Full Pay means the entire amount was paid upfront. A partial amount paid (like 2000 deposit on a 5000 deal) = Split Split. Record the TOTAL deal value as dealAmount, not the deposit amount.\n4. Commission is always 7% of the TOTAL deal value.\n\nReply ONLY valid JSON:\n{reply: message, actions: [{type: log_activity or update_stage or create_lead or clarify or none, data: {}}]}\n\nlog_activity: {leadId, leadName, activityType, outcome, scriptId, cadenceDay, note}\nupdate_stage: {leadId, newStage, dealAmount, dealTerms, depositAmount} — newStage options: Prospecting Contacted Meeting Booked Proposal Sent Won Lost. dealAmount = TOTAL deal value. dealTerms = Full Pay or Split Split. depositAmount = amount paid now if split.\ncreate_lead: {name, company, role, phone, email, seg, source, stage: Prospecting}\nclarify: {matches: [{id, name, company, seg, stage}], originalText}\n\nWhen a deal is Won always show: total deal value, terms, deposit paid if applicable, and commission (7% of total).";
     const history=[...(db.chatHistory||[]).slice(-8),{role:"user",content:t}];
     fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:history})})
     .then(r=>r.json())
@@ -827,7 +950,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
               if(a.data.dealAmount){
                 det["Total Deal"]=FMT(a.data.dealAmount);
                 det["Terms"]=a.data.dealTerms||"Full Pay";
-                if(a.data.depositAmount&&a.data.dealTerms==="50/50 Split") det["Deposit Paid"]=FMT(a.data.depositAmount);
+                if(a.data.depositAmount&&a.data.dealTerms==="Split Split") det["Deposit Paid"]=FMT(a.data.depositAmount);
                 det["Commission"]=FMT(a.data.dealAmount*COMM_RATE);
               }
               cards.push({action:"Stage updated",details:det});
@@ -954,7 +1077,7 @@ function Pipeline({db,upd,toast,onOpen,onImport}){
               ),
               l.dealAmount&&stage!=="Won"&&h("div",{style:{fontSize:10,color:"var(--tx2)",marginTop:4}},FMT(l.dealAmount)+(l.dealTerms?" · "+l.dealTerms:"")),
               stage==="Won"&&h("div",{className:"kba"},FMT(l.dealAmount||6900)),
-              stage==="Won"&&h("div",{className:"kbc"},"💜 "+FMT((l.dealAmount||6900)*COMM_RATE)+" · "+(l.dealTerms||"Full Pay"))
+              stage==="Won"&&h("div",{className:"kbc"},"💜 "+FMT((l.dealAmount||6900)*COMM_RATE)+" · "+(l.dealTerms||"Full Pay")+(l.depositAmount&&l.dealAmount?" ("+Math.round(l.depositAmount/(l.dealAmount||6900)*100)+"% dep)":""))
             ))
           ),
           !["Won","Lost"].includes(stage)&&h("div",{className:"k-add",onClick:()=>{setAddCol(stage);setAddForm({name:"",company:"",phone:"",role:"",seg:"A"});}},
@@ -1322,6 +1445,30 @@ function SettingsModal({keys,saveKeys,db,upd,toast,onClose}){
         )
       ),
 
+      // MONTHLY TARGETS
+      h("div",{className:"set-sec"},
+        h("div",{className:"set-title"},"🎯 Monthly Targets"),
+        h("div",{className:"set-sub"},"Set your BDO targets for the month. Used in the commission performance tracker on the Daily dashboard."),
+        h("div",{className:"set-grid"},
+          h("div",{className:"fld"},
+            h("label",{className:"flbl"},"Daily Action Target"),
+            h("input",{className:"finp",type:"number",value:f.targetActions||"100",onChange:e=>setF(p=>({...p,targetActions:parseInt(e.target.value)||100})),placeholder:"100"})
+          ),
+          h("div",{className:"fld"},
+            h("label",{className:"flbl"},"Weekly Meeting Target"),
+            h("input",{className:"finp",type:"number",value:f.targetMeetings||"6",onChange:e=>setF(p=>({...p,targetMeetings:parseInt(e.target.value)||6})),placeholder:"6"})
+          ),
+          h("div",{className:"fld"},
+            h("label",{className:"flbl"},"Monthly Deal Target"),
+            h("input",{className:"finp",type:"number",value:f.targetDeals||"4",onChange:e=>setF(p=>({...p,targetDeals:parseInt(e.target.value)||4})),placeholder:"4"})
+          ),
+          h("div",{className:"fld"},
+            h("label",{className:"flbl"},"Monthly Revenue Target (£)"),
+            h("input",{className:"finp",type:"number",value:f.targetRevenue||"27600",onChange:e=>setF(p=>({...p,targetRevenue:parseInt(e.target.value)||27600})),placeholder:"27600"})
+          )
+        ),
+        h("div",{className:"info-box"},"Default: "+TARGET_ACTIONS+" actions/day · "+TARGET_MEETINGS+" meetings/week · 4 deals/month · £27,600 revenue/month")
+      ),
       // DANGER ZONE
       h("div",{className:"set-sec",style:{borderColor:"#fca5a5"}},
         h("div",{className:"set-title",style:{color:"var(--rd)"}},"⚠️ Data"),

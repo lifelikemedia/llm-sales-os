@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Life Like Media — Sales OS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -305,6 +306,14 @@ input,select,textarea{font-family:Arial,Helvetica,sans-serif;}
 .perf-fill.on-track{background:var(--pu);}
 .perf-fill.over{background:var(--ac);}
 .mc-clickable{cursor:pointer;transition:all .15s;position:relative;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg2);}
+.login-box{background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:40px;width:380px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.08);}
+.login-logo{font-family:"Libre Baskerville",Georgia,serif;font-size:24px;font-weight:700;color:var(--tx);margin-bottom:6px;}
+.login-logo span{color:var(--ac);}
+.login-sub{font-size:13px;color:var(--tx2);margin-bottom:28px;}
+.login-err{background:var(--rdl);border:1px solid #fca5a5;border-radius:8px;padding:9px 12px;font-size:12px;color:var(--rd);margin-bottom:12px;}
+.user-badge{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--tx2);}
+.user-dot{width:8px;height:8px;border-radius:50%;background:var(--ac);flex-shrink:0;}
 .mc-clickable:hover{border-color:var(--pu);box-shadow:0 0 0 3px rgba(124,58,237,.08);}
 .script-copy{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--tx);line-height:1.65;white-space:pre-wrap;margin-top:11px;}
 .ch-filter{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
@@ -396,7 +405,7 @@ function defDB(){return{
     {id:3,name:"Declan Farrell",company:"Farrell Motors",role:"Owner",phone:"+44 28 9022 3300",email:"dec@farrellmotors.com",linkedin:"",address:"Belfast Road, Lisburn",website:"farrellmotors.com",industry:"Automotive",revenue:"£5–10m",employees:"50–100",seg:"B",source:"Scraped list",stage:"Prospecting",createdAt:"2026-04-07",notes:""},
     {id:4,name:"Claire Hughes",company:"Hughes Interiors",role:"Marketing Manager",phone:"+44 28 9077 4400",email:"claire@hughesin.co.uk",linkedin:"linkedin.com/in/clairehughes",address:"Victoria Square, Belfast BT1",website:"hughesin.co.uk",industry:"Interior Design",revenue:"£1–2m",employees:"10–50",seg:"A",source:"Referral",stage:"Contacted",createdAt:"2026-04-02",notes:"Referred by Ciara Murphy. Budget approved."},
     {id:5,name:"Paul McVey",company:"McVey Construction",role:"Director",phone:"+44 28 9033 5500",email:"paul@mcveybuild.com",linkedin:"",address:"Airport Road, Belfast BT3",website:"mcveybuild.com",industry:"Construction",revenue:"£5–10m",employees:"50–100",seg:"B",source:"Scraped list",stage:"Prospecting",createdAt:"2026-04-08",notes:""},
-    {id:6,name:"Ciara Murphy",company:"Murphy Logistics",role:"MD",phone:"+44 28 9055 7700",email:"ciara@murphylog.ie",linkedin:"",address:"Docks, Belfast BT3",website:"murphylog.ie",industry:"Logistics",revenue:"£5–10m",employees:"50–100",seg:"A",source:"Referral",stage:"Won",createdAt:"2026-03-20",notes:"Signed 28 March. PIF. Happy client."},
+    {id:6,name:"Ciara Murphy",company:"Murphy Logistics",role:"MD",phone:"+44 28 9055 7700",email:"ciara@murphylog.ie",linkedin:"",address:"Docks, Belfast BT3",website:"murphylog.ie",industry:"Logistics",revenue:"£5–10m",employees:"50–100",seg:"A",source:"Referral",stage:"Won",createdAt:"2026-03-20",wonAt:"2026-04-02",dealAmount:6900,dealTerms:"Full Pay",notes:"Signed 28 March. PIF. Happy client."},
   ],
   activities:[
     {id:101,leadId:2,leadName:"Sarah Brennan",type:"Call",outcome:"Booked meeting",scriptId:"s1",day:1,note:"On-site Thu 2pm",loggedAt:"2026-04-07"},
@@ -511,7 +520,7 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
                 setWonDeposit(String(lead.depositAmount||""));
                 setWonModal(true);
               }
-              else{upL("stage",s);toast("Stage → "+s);}
+              else{upL("stage",s);if(s==="Won")upL("wonAt",TODAY());toast("Stage → "+s);}
             }},s)))
         ),
         // SEGMENT
@@ -653,7 +662,7 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
           h("button",{className:"btn btn-p",onClick:()=>{
             const dealAmt=parseInt(wonAmt)||6900;
             const depAmt=wonTerms==="Split Split"&&wonDeposit?parseInt(wonDeposit)||0:0;
-            upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:wonTerms,depositAmount:depAmt||undefined}:l)}));
+            upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:wonTerms,depositAmount:depAmt||undefined,wonAt:TODAY()}:l)}));
             const msg=wonTerms==="Split Split"&&depAmt?"🏆 Won! "+FMT(dealAmt)+" total · "+FMT(depAmt)+" deposit paid · "+FMT(dealAmt*COMM_RATE)+" commission":"🏆 Won! "+FMT(dealAmt)+" · Full Pay · "+FMT(dealAmt*COMM_RATE)+" commission";
             toast(msg);
             setWonModal(false);
@@ -693,9 +702,9 @@ function PerfPanel({db,keys,onClose}){
   }
 
   function getWon(){
-    if(view==="daily") return db.leads.filter(l=>l.stage==="Won"&&l.createdAt===TODAY()).length;
-    if(view==="weekly"){const ago=new Date();ago.setDate(ago.getDate()-7);return db.leads.filter(l=>l.stage==="Won"&&new Date(l.createdAt)>=ago).length;}
-    return db.leads.filter(l=>l.stage==="Won"&&l.createdAt&&l.createdAt.startsWith(month)).length;
+    if(view==="daily") return db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)===TODAY()).length;
+    if(view==="weekly"){const ago=new Date();ago.setDate(ago.getDate()-7);return db.leads.filter(l=>l.stage==="Won"&&new Date(l.wonAt||l.createdAt)>=ago).length;}
+    return db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)&&(l.wonAt||l.createdAt).startsWith(month)).length;
   }
 
   const acts=getActs();
@@ -703,8 +712,10 @@ function PerfPanel({db,keys,onClose}){
   const wonLeads=db.leads.filter(l=>l.stage==="Won");
   const meetings=acts.filter(a=>a.outcome==="Booked meeting").length;
   const rev=view==="monthly"
-    ?db.leads.filter(l=>l.stage==="Won"&&l.createdAt&&l.createdAt.startsWith(month)).reduce((s,l)=>s+(l.dealAmount||6900),0)
-    :wonLeads.reduce((s,l)=>s+(l.dealAmount||6900),0);
+    ?db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)&&(l.wonAt||l.createdAt).startsWith(month)).reduce((s,l)=>s+(l.dealAmount||6900),0)
+    :view==="weekly"
+      ?db.leads.filter(l=>{const ago=new Date();ago.setDate(ago.getDate()-7);return l.stage==="Won"&&new Date(l.wonAt||l.createdAt)>=ago;}).reduce((s,l)=>s+(l.dealAmount||6900),0)
+      :db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)===TODAY()).reduce((s,l)=>s+(l.dealAmount||6900),0);
   const comm=rev*COMM_RATE;
 
   // Scale targets by view
@@ -769,25 +780,203 @@ function PerfPanel({db,keys,onClose}){
 }
 
 
+// ── SUPABASE ──
+const SUPA_URL = "https://mvlkvxbpbfayfnxpxaul.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12bGt2eGJwYmZheWZueHB4YXVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMTkwNzAsImV4cCI6MjA5MTY5NTA3MH0.qjQxao2SgHK_IKDS44CrOHISUIc3r8xVL7TOsu2zq8g";
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ── LOGIN SCREEN ──
+function LoginScreen({onLogin}){
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [error,setError]=useState("");
+  const [loading,setLoading]=useState(false);
+
+  async function login(){
+    if(!email||!password){setError("Please enter your email and password");return;}
+    setLoading(true);setError("");
+    const {data,error:err}=await supa.auth.signInWithPassword({email:email.trim(),password});
+    if(err){setError(err.message);setLoading(false);return;}
+    onLogin(data.session);
+  }
+
+  return h("div",{className:"login-wrap"},
+    h("div",{className:"login-box"},
+      h("div",{className:"login-logo"},"Life Like ",h("span",null,"Media")),
+      h("div",{className:"login-sub"},"Sales OS — sign in to continue"),
+      error&&h("div",{className:"login-err"},error),
+      h("div",{className:"fld",style:{marginBottom:10}},
+        h("label",{className:"flbl"},"Email"),
+        h("input",{className:"finp",type:"email",value:email,onChange:e=>setEmail(e.target.value),onKeyDown:e=>e.key==="Enter"&&login(),placeholder:"you@lifelike.media",autoFocus:true})
+      ),
+      h("div",{className:"fld",style:{marginBottom:20}},
+        h("label",{className:"flbl"},"Password"),
+        h("input",{className:"finp",type:"password",value:password,onChange:e=>setPassword(e.target.value),onKeyDown:e=>e.key==="Enter"&&login(),placeholder:"••••••••"})
+      ),
+      h("button",{className:"btn btn-p",style:{width:"100%",padding:11,fontSize:13},onClick:login,disabled:loading},
+        loading?"Signing in...":"Sign In →"
+      ),
+      h("div",{style:{marginTop:16,fontSize:11,color:"var(--tx3)",textAlign:"center"}},"Life Like Media · Belfast · Sales OS v3")
+    )
+  );
+}
+
+
 function App(){
+  const [session,setSession]=useState(undefined); // undefined=loading, null=logged out
+  const [role,setRole]=useState(null);
   const [view,setView]=useState("daily");
-  const [db,setDB]=useState(()=>loadDB());
+  const [db,setDB]=useState(()=>({leads:[],activities:[],scripts:DEFAULT_SCRIPTS,manualDays:{},chatHistory:[]}));
   const [keys,setKeys]=useState(()=>loadKeys());
   const [toast,setToast]=useState({msg:"",show:false});
   const [openLead,setOpenLead]=useState(null);
   const [showSettings,setShowSettings]=useState(false);
   const [showImport,setShowImport]=useState(false);
-  const upd=useCallback(fn=>{setDB(p=>{const n=fn(p);try{localStorage.setItem("sos_v3",JSON.stringify(n));}catch(e){}return n;});},[]);
-  const saveKeys=useCallback(k=>{setKeys(k);try{localStorage.setItem("sos_keys_v1",JSON.stringify(k));}catch(e){};},[]);
+  const [dbLoading,setDbLoading]=useState(true);
+
   const shT=useCallback(msg=>{setToast({msg,show:true});setTimeout(()=>setToast(t=>({...t,show:false})),2800);},[]);
+
+  // Check session on mount
+  useEffect(()=>{
+    supa.auth.getSession().then(({data:{session}})=>{
+      setSession(session);
+      if(session) loadUserData(session);
+    });
+    const {data:{subscription}}=supa.auth.onAuthStateChange((_,session)=>{
+      setSession(session);
+      if(session) loadUserData(session);
+      else{setRole(null);setDB({leads:[],activities:[],scripts:DEFAULT_SCRIPTS,manualDays:{},chatHistory:[]});}
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+
+  async function loadUserData(sess){
+    setDbLoading(true);
+    try{
+      // Get role
+      const {data:settings}=await supa.from("user_settings").select("*").eq("user_id",sess.user.id).single();
+      setRole(settings?.role||"bdo");
+      if(settings){setKeys(k=>({...k,...settings}));}
+
+      // Load leads
+      const {data:leads}=await supa.from("leads").select("*").order("created_at",{ascending:false});
+      // Load activities
+      const {data:activities}=await supa.from("activities").select("*").order("created_at",{ascending:false});
+      // Load scripts
+      const {data:scripts}=await supa.from("scripts").select("*");
+      // Load manual days
+      const {data:manualDays}=await supa.from("manual_days").select("*");
+
+      const manualDaysObj={};
+      (manualDays||[]).forEach(m=>{manualDaysObj[m.lead_id+"_"+m.day]=true;});
+
+      setDB({
+        leads:(leads||[]).map(dbToLead),
+        activities:(activities||[]).map(dbToActivity),
+        scripts:scripts&&scripts.length>0?scripts:DEFAULT_SCRIPTS,
+        manualDays:manualDaysObj,
+        chatHistory:[]
+      });
+    }catch(e){console.error("Load error",e);shT("Error loading data");}
+    setDbLoading(false);
+  }
+
+  // Convert DB row to app format
+  function dbToLead(r){return{id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",address:r.address||"",website:r.website||"",industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"B",source:r.source||"",stage:r.stage||"Prospecting",dealAmount:r.deal_amount,dealTerms:r.deal_terms,depositAmount:r.deposit_amount,wonAt:r.won_at,notes:r.notes||"",createdAt:r.created_at?.split("T")[0]||TODAY()};}
+  function dbToActivity(r){return{id:r.id,leadId:r.lead_id,leadName:r.lead_name||"",type:r.type||"Call",outcome:r.outcome||"",scriptId:r.script_id,day:r.day||1,note:r.note||"",loggedAt:r.logged_at||TODAY()};}
+
+  // Save lead to Supabase
+  async function saveLead(lead){
+    const row={name:lead.name,company:lead.company,role:lead.role,phone:lead.phone,email:lead.email,linkedin:lead.linkedin,address:lead.address,website:lead.website,industry:lead.industry,revenue:lead.revenue,employees:lead.employees,seg:lead.seg,source:lead.source,stage:lead.stage,deal_amount:lead.dealAmount||null,deal_terms:lead.dealTerms||null,deposit_amount:lead.depositAmount||null,won_at:lead.wonAt||null,notes:lead.notes};
+    if(lead.id&&typeof lead.id==="string"&&lead.id.includes("-")){
+      await supa.from("leads").update(row).eq("id",lead.id);
+    } else {
+      const {data}=await supa.from("leads").insert(row).select().single();
+      return data?.id;
+    }
+    return lead.id;
+  }
+
+  // Save activity to Supabase
+  async function saveActivity(act){
+    await supa.from("activities").insert({lead_id:act.leadId,lead_name:act.leadName,type:act.type,outcome:act.outcome,script_id:act.scriptId||null,day:act.day,note:act.note||"",logged_at:act.loggedAt});
+  }
+
+  // upd function - updates local state and syncs to Supabase
+  const upd=useCallback(fn=>{
+    setDB(prev=>{
+      const next=fn(prev);
+      // Find changed leads and sync
+      next.leads.forEach(l=>{
+        const old=prev.leads.find(x=>x.id===l.id);
+        if(!old||JSON.stringify(old)!==JSON.stringify(l)) saveLead(l);
+      });
+      // Find new leads
+      next.leads.filter(l=>!prev.leads.find(x=>x.id===l.id)).forEach(async l=>{
+        const newId=await saveLead(l);
+        if(newId&&newId!==l.id){setDB(p=>({...p,leads:p.leads.map(x=>x.id===l.id?{...x,id:newId}:x)}));}
+      });
+      // Find new activities
+      next.activities.filter(a=>!prev.activities.find(x=>x.id===a.id)).forEach(a=>saveActivity(a));
+      // Find new/changed manual days
+      Object.keys(next.manualDays||{}).forEach(async k=>{
+        if(!(prev.manualDays||{})[k]){
+          const [leadId,day]=k.split("_");
+          await supa.from("manual_days").insert({lead_id:leadId,day:parseInt(day)}).onConflict("lead_id,day").ignore();
+        }
+      });
+      Object.keys(prev.manualDays||{}).forEach(async k=>{
+        if(!(next.manualDays||{})[k]){
+          const [leadId,day]=k.split("_");
+          await supa.from("manual_days").delete().eq("lead_id",leadId).eq("day",parseInt(day));
+        }
+      });
+      return next;
+    });
+  },[]);
+
+  const saveKeys=useCallback(async k=>{
+    setKeys(k);
+    try{localStorage.setItem("sos_keys_v1",JSON.stringify(k));}catch(e){}
+    if(session){await supa.from("user_settings").update({target_actions:k.targetActions,target_meetings:k.targetMeetings,target_deals:k.targetDeals,target_revenue:k.targetRevenue,rc_client_id:k.rcClientId||null,rc_jwt:k.rcJwt||null,ff_api_key:k.ffApiKey||null}).eq("user_id",session.user.id);}
+  },[session]);
+
+  async function logout(){await supa.auth.signOut();setSession(null);setRole(null);}
+
+  // Real-time subscription
+  useEffect(()=>{
+    if(!session)return;
+    const ch=supa.channel("db-changes")
+      .on("postgres_changes",{event:"*",schema:"public",table:"leads"},()=>loadUserData(session))
+      .on("postgres_changes",{event:"*",schema:"public",table:"activities"},()=>loadUserData(session))
+      .subscribe();
+    return()=>supa.removeChannel(ch);
+  },[session]);
+
   const currentLead=openLead?db.leads.find(l=>l.id===openLead):null;
-  const NAV=[["daily","📋 Daily"],["chat","💬 AI Logger"],["pipeline","💼 Pipeline"],["callcentral","📞 Call Central"],["report","📊 Report"]];
+
+  // Role-based nav
+  const NAV=role==="founder"
+    ?[["daily","📋 Daily"],["chat","💬 AI Logger"],["pipeline","💼 Pipeline"],["callcentral","📞 Call Central"],["report","📊 Report"]]
+    :[["daily","📋 Daily"],["chat","💬 AI Logger"],["pipeline","💼 Pipeline"],["callcentral","📞 Call Central"]];
+
+  // Loading state
+  if(session===undefined) return h("div",{className:"login-wrap"},h("div",{style:{color:"var(--tx3)",fontSize:13}},"Loading..."));
+
+  // Not logged in
+  if(!session) return h(LoginScreen,{onLogin:s=>{setSession(s);loadUserData(s);}});
+
+  // Loading data
+  if(dbLoading) return h("div",{className:"login-wrap"},h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:18,color:"var(--tx)",marginBottom:8}},"Life Like ",h("span",{style:{color:"var(--ac)"}},"Media")),h("div",{style:{color:"var(--tx3)",fontSize:13}},"Loading your data...")));
+
   return h("div",{className:"app"},
     h("nav",{className:"nav"},
       h("div",{className:"logo"},"Life Like ",h("span",null,"Media")),
       h("div",{className:"nav-tabs"},NAV.map(([id,lbl])=>h("button",{key:id,className:"tab"+(view===id?" on":"")+(id==="callcentral"?" rc":""),onClick:()=>setView(id)},lbl))),
       h("div",{className:"nav-right"},
-        h("span",{className:"live-badge"},"🟢 Live"),
+        h("div",{className:"user-badge"},h("div",{className:"user-dot"}),session.user.email.split("@")[0]),
+        role==="founder"&&h("span",{className:"live-badge"},"👑 Founder"),
+        role==="bdo"&&h("span",{className:"live-badge"},"🟢 BDO"),
         h("button",{className:"gear-btn",onClick:()=>setShowSettings(true),title:"Settings"},"⚙️")
       )
     ),
@@ -800,7 +989,7 @@ function App(){
         view==="report"&&h(Report,{db})
       ),
     currentLead&&h(LeadPanel,{leadId:openLead,db,upd,onClose:()=>setOpenLead(null),toast:shT,goChat:()=>setView("chat")}),
-    showSettings&&h(SettingsModal,{keys,saveKeys,db,upd,toast:shT,onClose:()=>setShowSettings(false)}),
+    showSettings&&h(SettingsModal,{keys,saveKeys,db,upd,toast:shT,onClose:()=>setShowSettings(false),logout}),
     showImport&&h(ImportModal,{db,upd,toast:shT,onClose:()=>setShowImport(false)}),
     h("div",{className:"toast"+(toast.show?" show":"")},toast.msg)
   );
@@ -943,6 +1132,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
             const lead=n.leads.find(l=>l.id===a.data.leadId);
             if(lead){
               affectedId=lead.id;const old=lead.stage;lead.stage=a.data.newStage;
+              if(a.data.newStage==="Won") lead.wonAt=TODAY();
               if(a.data.dealAmount) lead.dealAmount=a.data.dealAmount;
               if(a.data.dealTerms) lead.dealTerms=a.data.dealTerms;
               if(a.data.depositAmount) lead.depositAmount=a.data.depositAmount;
@@ -1343,7 +1533,7 @@ function Report({db}){
 
 <script>
 // ── SETTINGS MODAL ──
-function SettingsModal({keys,saveKeys,db,upd,toast,onClose}){
+function SettingsModal({keys,saveKeys,db,upd,toast,onClose,logout}){
   const [ak,setAk]=useState(()=>localStorage.getItem("sos_api_key")||"");
   const [f,setF]=useState({...keys});
   const [scriptCh,setScriptCh]=useState("All");
@@ -1471,9 +1661,9 @@ function SettingsModal({keys,saveKeys,db,upd,toast,onClose}){
       ),
       // DANGER ZONE
       h("div",{className:"set-sec",style:{borderColor:"#fca5a5"}},
-        h("div",{className:"set-title",style:{color:"var(--rd)"}},"⚠️ Data"),
-        h("div",{className:"set-sub"},"Reset all leads, activities and deals back to demo data. Your API keys will be preserved."),
-        h("button",{className:"btn btn-s",style:{borderColor:"var(--rd)",color:"var(--rd)"},onClick:resetData},"Reset to Demo Data")
+        h("div",{className:"set-title",style:{color:"var(--rd)"}},"⚠️ Account"),
+        h("div",{className:"set-sub"},"Sign out of the Sales OS on this device."),
+        h("button",{className:"btn btn-s",style:{borderColor:"var(--rd)",color:"var(--rd)"},onClick:()=>{onClose();logout&&logout();}},"Sign Out")
       )
     )
   );

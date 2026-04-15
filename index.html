@@ -364,7 +364,13 @@ const FP = {name:["full name","contact name","name","person"],company:["company"
   source:["source","lead source"]};
 
 function lev(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i||j));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
-function scoreSeg(r){let s=0;const loc=(r.location||"").toLowerCase(),role=(r.role||"").toLowerCase(),emp=parseInt((r.employees||"0").replace(/[^0-9]/g,""))||0;if(loc.includes("belfast"))s+=4;else if(["northern ireland","antrim","lisburn","newry","derry"].some(p=>loc.includes(p)))s+=3;else if(loc.includes("ireland")||loc.includes("uk"))s+=1;if(/\b(owner|md|ceo|managing director|founder|principal)\b/.test(role))s+=3;else if(/\b(director|head of|vp)\b/.test(role))s+=2;else if(/\b(manager|marketing|sales)\b/.test(role))s+=1;if(emp>=10&&emp<=100)s+=2;else if(emp>100&&emp<=200)s+=1;return s>=7?"A":s>=4?"B":"C";}
+function scoreSeg(r){let s=0;
+  const loc=(r.location||r.address||r.postcode||"").toLowerCase();
+  const role=(r.role||"").toLowerCase();
+  const emp=parseInt((r.employees||"0").replace(/[^0-9]/g,""))||0;
+  const phone=(r.phone||"").replace(/[\s()\-]/g,"");
+  const isNI=phone.startsWith("028")||phone.startsWith("+4428")||phone.startsWith("4428");
+  if(isNI&&!loc)s+=3;if(loc.includes("belfast"))s+=4;else if(["northern ireland","antrim","lisburn","newry","derry"].some(p=>loc.includes(p)))s+=3;else if(loc.includes("ireland")||loc.includes("uk"))s+=1;if(/\b(owner|md|ceo|managing director|founder|principal)\b/.test(role))s+=3;else if(/\b(director|head of|vp)\b/.test(role))s+=2;else if(/\b(manager|marketing|sales)\b/.test(role))s+=1;if(emp>=10&&emp<=100)s+=2;else if(emp>100&&emp<=200)s+=1;return s>=7?"A":s>=4?"B":"C";}
 function getApiKey(){return localStorage.getItem("sos_api_key")||"";}
 
 const DEFAULT_SCRIPTS = [
@@ -1696,7 +1702,7 @@ function ImportModal({db,upd,toast,onClose}){
       const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
       const result=rows.map(row=>{
         const m={};
-        Object.entries(map).forEach(([col,field])=>{if(!field||!row[col])return;if(field==="first_name")m._f=row[col];else if(field==="last_name")m._l=row[col];else m[field]=row[col];});
+        Object.entries(map).forEach(([col,field])=>{if(!field||!row[col])return;if(field==="first_name")m._f=row[col];else if(field==="last_name")m._l=row[col];else if(field==="postcode"){m.postcode=row[col];if(!m.location)m.location=row[col];}else m[field]=row[col];});
         if(m._f||m._l){m.name=[m._f,m._l].filter(Boolean).join(" ");delete m._f;delete m._l;}
         if(!m.source)m.source="Scraped list";
         m.seg=scoreSeg(m);

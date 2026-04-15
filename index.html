@@ -332,8 +332,27 @@ const {useState,useEffect,useRef,useCallback} = React;
 const h = React.createElement;
 const TODAY = () => new Date().toISOString().split("T")[0];
 const FMT = n => "£" + Math.round(n).toLocaleString("en-GB");
-const CDAYS = [1,3,6,8,10,12,14];
+const CDAYS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17];
 const DEAL_AMOUNT = 6900;
+const CADENCE_ACTIONS = {
+  1:"📞 Call + VM · 📧 Email #1 · 💼 LinkedIn connect",
+  2:"📞 Call again",
+  3:"📧 Email #2",
+  4:"📞 Call",
+  5:"💬 SMS",
+  6:"💼 LinkedIn DM",
+  7:"📞 Call",
+  8:"📧 Email #3",
+  9:"🚪 Door knock",
+  10:"📞 Call",
+  11:"💼 LinkedIn follow-up",
+  12:"📧 Email #4",
+  13:"📞 Call",
+  14:"💬 SMS",
+  15:"📧 Email #5",
+  16:"📞 Final call",
+  17:"📧 Break-up email"
+};
 const COMM_RATE = 0.07;
 const TARGET_ACTIONS = 100;
 const TARGET_MEETINGS = 6;
@@ -436,7 +455,7 @@ function EF({label,value,onChange,type,opts,full,placeholder}){
   return h("div",{className:"ef"+(full?" full":"")},h("div",{className:"ef-lbl"},label),h("input",{className:"ef-inp",type:"text",value:value||"",onChange:e=>onChange(e.target.value),placeholder:placeholder||"Click to edit..."}));
 }
 
-function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
+function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
   const lead=db.leads.find(l=>l.id===leadId);
   const [logOpen,setLogOpen]=useState(false);
   const [lf,setLf]=useState({type:"Call",outcome:"No answer",scriptId:"",day:1,note:""});
@@ -444,11 +463,19 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
   const [wonAmt,setWonAmt]=useState("6900");
   const [wonTerms,setWonTerms]=useState("Full Pay");
   const [wonDeposit,setWonDeposit]=useState("");
+  const [geoOpen,setGeoOpen]=useState(false);
   if(!lead) return null;
 
   const acts=db.activities.filter(a=>a.leadId===lead.id).sort((a,b)=>new Date(b.loggedAt)-new Date(a.loggedAt));
   const initials=lead.name.split(" ").map(n=>n[0]).slice(0,2).join("").toUpperCase();
-  const wonDeal=lead.stage==="Won";
+
+  // Cadence calculations
+  const firstContact=acts.length>0?acts[acts.length-1].loggedAt:null;
+  const daysSinceFirst=firstContact?Math.floor((new Date()-new Date(firstContact))/(1000*60*60*24)):null;
+  const currentDay=daysSinceFirst!==null?Math.min(daysSinceFirst+1,17):null;
+  const totalDone=CDAYS.filter(d=>getDayStatus(d).done).length;
+  const nextDueDay=CDAYS.find(d=>!getDayStatus(d).done);
+  const lastAct=acts[0];
 
   function upL(field,val){upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,[field]:val}:l)}));}
 
@@ -458,10 +485,9 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
       const n={...p,activities:[...p.activities,act]};
       const key=lead.id+"_"+act.day;
       n.manualDays={...(n.manualDays||{}),[key]:true};
-      // Auto-advance stage
       if(act.outcome==="Booked meeting"&&["Prospecting","Contacted"].includes(lead.stage)){
         n.leads=n.leads.map(l=>l.id===lead.id?{...l,stage:"Meeting Booked"}:l);
-      } else if(["Spoke – follow-up","Positive reply"].includes(act.outcome)&&lead.stage==="Prospecting"){
+      } else if(["Spoke \u2013 follow-up","Positive reply"].includes(act.outcome)&&lead.stage==="Prospecting"){
         n.leads=n.leads.map(l=>l.id===lead.id?{...l,stage:"Contacted"}:l);
       }
       return n;
@@ -474,146 +500,291 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
     const manual=!!((db.manualDays||{})[lead.id+"_"+day]);
     return{done:auto||manual,auto,manual:manual&&!auto};
   }
+
   function toggleDay(day){
     const key=lead.id+"_"+day;
     upd(p=>{const md={...(p.manualDays||{})};md[key]?delete md[key]:md[key]=true;return{...p,manualDays:md};});
     toast("Cadence updated");
   }
-  const totalDone=CDAYS.filter(d=>getDayStatus(d).done).length;
+
+  // GEO DISPERSE - find leads within ~2 miles using postcode prefix matching
+  function getNearbyLeads(){
+    const myPost=(lead.postcode||lead.address||"").toUpperCase().replace(/\s/g,"");
+    if(!myPost||myPost.length<3) return [];
+    const prefix=myPost.slice(0,4); // e.g. BT90 or BT1
+    return db.leads.filter(l=>{
+      if(l.id===lead.id)return false;
+      const lPost=(l.postcode||l.address||"").toUpperCase().replace(/\s/g,"");
+      return lPost.startsWith(prefix.slice(0,3));
+    }).slice(0,10);
+  }
+  const nearbyLeads=getNearbyLeads();
+  const mapsUrl=lead.address||lead.postcode?"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((lead.address||"")+" "+(lead.postcode||"")):"";
 
   return h("div",null,
     h("div",{className:"panel-overlay",onClick:onClose}),
     h("div",{className:"panel open"},
+
+      // ── HEADER ──
       h("div",{className:"ph"},
         h("div",{className:"ph-top"},
           h("div",{style:{display:"flex",alignItems:"center",gap:10,flex:1}},
-            h("div",{style:{width:42,height:42,borderRadius:"50%",background:"var(--acl)",border:"1px solid var(--acm)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"var(--acd)",flexShrink:0}},initials),
+            h("div",{style:{width:44,height:44,borderRadius:"50%",background:"var(--acl)",border:"2px solid var(--acm)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:"var(--acd)",flexShrink:0}},initials),
             h("div",null,
-              h("div",{className:"ph-name"},lead.name),
-              h("div",{className:"ph-sub"},lead.role," · ",lead.company)
+              h("div",{className:"ph-name"},lead.name||h("span",{style:{color:"var(--tx3)",fontStyle:"italic"}},"No name")),
+              h("div",{className:"ph-sub"},lead.role||(h("span",{style:{color:"var(--tx3)"}},"No role"))," · ",lead.company||(h("span",{style:{color:"var(--tx3)"}},"No company")))
             )
           ),
-          h("button",{className:"ph-close",onClick:onClose},"✕")
+          h("button",{className:"ph-close",onClick:onClose},"\u2715")
         ),
         h("div",{className:"ph-actions"},
           h("span",{className:"pill "+(STAGE_COLORS[lead.stage]||"p-prospect")},lead.stage),
           h("span",{className:"seg-"+lead.seg.toLowerCase(),style:{fontSize:11}},lead.seg+"-Seg"),
-          h("span",{style:{fontSize:11,color:"var(--tx3)"}},acts.length+" touches"),
-          h("button",{className:"btn btn-ok btn-sm",style:{marginLeft:"auto"},onClick:()=>setLogOpen(!logOpen)},logOpen?"Cancel":"⚡ Log"),
-          h("button",{className:"btn btn-ai btn-sm",onClick:()=>{goChat();onClose();}},"💬 AI")
+          h("button",{className:"btn btn-ok btn-sm",style:{marginLeft:"auto"},onClick:()=>setLogOpen(!logOpen)},logOpen?"Cancel":"\u26a1 Log"),
+          h("button",{className:"btn btn-ai btn-sm",onClick:()=>{goChat();onClose();}},"AI"),
+          h("button",{className:"btn btn-sm",style:{background:"var(--rdl)",color:"var(--rd)",border:"1px solid #fca5a5",borderRadius:8,padding:"4px 9px",fontSize:11},onClick:async()=>{
+            if(!confirm("Delete "+lead.name+"? Cannot be undone."))return;
+            await supa.from("activities").delete().eq("lead_id",lead.id);
+            await supa.from("manual_days").delete().eq("lead_id",lead.id);
+            await supa.from("leads").delete().eq("id",lead.id);
+            upd(p=>({...p,leads:p.leads.filter(l=>l.id!==lead.id),activities:p.activities.filter(a=>a.leadId!==lead.id)}));
+            onClose();toast("Lead deleted");
+          }},"\ud83d\uddd1\ufe0f")
         )
       ),
+
       h("div",{className:"panel-body"},
-        // QUICK LOG
+
+        // ── QUICK LOG ──
         logOpen&&h("div",{className:"ql"},
           h("div",{style:{fontSize:12,fontWeight:700,color:"var(--tx)",marginBottom:8}},"Log activity for "+lead.name),
           h("div",{className:"ql-g"},
             h("div",{className:"ql-fld"},h("label",{className:"ql-lbl"},"Type"),h("select",{className:"ql-s",value:lf.type,onChange:e=>setLf(p=>({...p,type:e.target.value}))},["Call","Voicemail","Email","LinkedIn","Text","Door Knock","Meeting"].map(t=>h("option",{key:t},t)))),
-            h("div",{className:"ql-fld"},h("label",{className:"ql-lbl"},"Outcome"),h("select",{className:"ql-s",value:lf.outcome,onChange:e=>setLf(p=>({...p,outcome:e.target.value}))},["No answer","Left voicemail","Spoke – follow-up","Spoke – not interested","Booked meeting","Positive reply","No-show","Showed"].map(o=>h("option",{key:o},o)))),
-            h("div",{className:"ql-fld"},h("label",{className:"ql-lbl"},"Script"),h("select",{className:"ql-s",value:lf.scriptId,onChange:e=>setLf(p=>({...p,scriptId:e.target.value}))},h("option",{value:""},"— Select —"),...db.scripts.filter(s=>s.active).map(s=>h("option",{key:s.id,value:s.id},s.name.split("—")[0].trim())))),
+            h("div",{className:"ql-fld"},h("label",{className:"ql-lbl"},"Outcome"),h("select",{className:"ql-s",value:lf.outcome,onChange:e=>setLf(p=>({...p,outcome:e.target.value}))},["No answer","Left voicemail","Spoke \u2013 follow-up","Spoke \u2013 not interested","Booked meeting","Positive reply","No-show","Showed"].map(o=>h("option",{key:o},o)))),
+            h("div",{className:"ql-fld"},h("label",{className:"ql-lbl"},"Script"),h("select",{className:"ql-s",value:lf.scriptId,onChange:e=>setLf(p=>({...p,scriptId:e.target.value}))},h("option",{value:""},"\u2014 Select \u2014"),...db.scripts.filter(s=>s.active).map(s=>h("option",{key:s.id,value:s.id},s.name.split("\u2014")[0].trim())))),
             h("div",{className:"ql-fld"},h("label",{className:"ql-lbl"},"Day"),h("select",{className:"ql-s",value:lf.day,onChange:e=>setLf(p=>({...p,day:e.target.value}))},CDAYS.map(d=>h("option",{key:d,value:d},"Day "+d))))
           ),
           h("div",{className:"ql-fld",style:{marginBottom:8}},h("label",{className:"ql-lbl"},"Note"),h("input",{className:"ql-i",value:lf.note,onChange:e=>setLf(p=>({...p,note:e.target.value})),placeholder:"Quick note..."})),
-          h("div",{style:{display:"flex",gap:6,justifyContent:"flex-end"}},h("button",{className:"btn btn-s btn-sm",onClick:()=>setLogOpen(false)},"Cancel"),h("button",{className:"btn btn-p btn-sm",onClick:logAct},"Log ✓"))
+          h("div",{style:{display:"flex",gap:6,justifyContent:"flex-end"}},h("button",{className:"btn btn-s btn-sm",onClick:()=>setLogOpen(false)},"Cancel"),h("button",{className:"btn btn-p btn-sm",onClick:logAct},"Log \u2713"))
         ),
-        // STAGE
+
+        // ── CONTACT INFO ──
+        h("div",{className:"psec"},
+          h("div",{className:"psec-title"},"Contact"),
+          h("div",{style:{display:"flex",flexDirection:"column",gap:7}},
+
+            // EMAIL
+            h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Email"),
+              h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                h("input",{className:"ef-inp",value:lead.email||"",onChange:e=>upL("email",e.target.value),placeholder:"email@company.com"}),
+                lead.email&&h("a",{href:"mailto:"+lead.email,style:{fontSize:11,color:"var(--bl)",flexShrink:0,textDecoration:"none"}},"Send \u2192")
+              )
+            ),
+
+            // PHONE
+            h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Phone",keys&&keys.rcClientId?" (click to dial)":""),
+              h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                h("input",{className:"ef-inp",style:{fontFamily:"'Courier New',monospace"},value:lead.phone||"",onChange:e=>upL("phone",e.target.value),placeholder:"+44 28 9000 0000"}),
+                lead.phone&&h("a",{href:"tel:"+lead.phone,style:{fontSize:11,color:"var(--ac)",flexShrink:0,textDecoration:"none",fontWeight:600}},"📞 Call")
+              )
+            ),
+
+            // ADDRESS
+            h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Address"),
+              h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                h("input",{className:"ef-inp",value:lead.address||"",onChange:e=>upL("address",e.target.value),placeholder:"Street, City, Postcode"}),
+                mapsUrl&&h("a",{href:mapsUrl,target:"_blank",style:{fontSize:11,color:"var(--bl)",flexShrink:0,textDecoration:"none"}},"📍 Maps")
+              )
+            ),
+
+            // POSTCODE + GEO DISPERSE
+            h("div",{style:{display:"flex",gap:7}},
+              h("div",{className:"ef",style:{flex:1}},
+                h("div",{className:"ef-lbl"},"Postcode"),
+                h("input",{className:"ef-inp",value:lead.postcode||"",onChange:e=>upL("postcode",e.target.value),placeholder:"BT1 1AA"})
+              ),
+              h("div",{style:{display:"flex",flexDirection:"column",gap:3}},
+                h("div",{className:"ef-lbl"},"Geo Disperse"),
+                h("button",{className:"btn btn-ok btn-sm",style:{height:32,whiteSpace:"nowrap"},onClick:()=>setGeoOpen(!geoOpen)},
+                  "\ud83d\uddfa\ufe0f "+(geoOpen?"Hide":"Nearby "+(nearbyLeads.length))
+                )
+              )
+            ),
+
+            // GEO DISPERSE PANEL
+            geoOpen&&h("div",{style:{background:"var(--bg2)",border:"1px solid var(--bd)",borderRadius:9,padding:11}},
+              h("div",{style:{fontSize:11,fontWeight:700,color:"var(--tx)",marginBottom:8}},"Leads near "+((lead.postcode||lead.address||"this location").split(",")[0])+" (within ~2 miles)"),
+              nearbyLeads.length===0
+                ?h("div",{style:{fontSize:11,color:"var(--tx3)",textAlign:"center",padding:8}},"No other leads in this area yet.\nAdd postcodes to leads to enable GEO DISPERSE.")
+                :nearbyLeads.map(l=>h("div",{key:l.id,style:{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid var(--bd)"}},
+                    h("span",{className:"seg-"+l.seg.toLowerCase(),style:{fontWeight:700,fontSize:12}},"["+l.seg+"]"),
+                    h("div",{style:{flex:1}},
+                      h("div",{style:{fontSize:12,fontWeight:600,color:"var(--tx)"}},l.name||l.company),
+                      h("div",{style:{fontSize:10,color:"var(--tx2)"}},l.company+(l.postcode?" · "+l.postcode:""))
+                    ),
+                    h("span",{className:"pill "+(STAGE_COLORS[l.stage]||"p-prospect"),style:{fontSize:9}},l.stage)
+                  )),
+              nearbyLeads.length>0&&h("a",{
+                href:"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent((lead.address||lead.postcode||"Belfast")+" businesses"),
+                target:"_blank",
+                style:{display:"block",marginTop:8,fontSize:11,color:"var(--bl)",textAlign:"center"}
+              },"View area on Google Maps \u2192")
+            ),
+
+            // WEBSITE
+            h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Website"),
+              h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                h("input",{className:"ef-inp",value:lead.website||"",onChange:e=>upL("website",e.target.value),placeholder:"company.co.uk"}),
+                lead.website&&h("a",{href:(lead.website.startsWith("http")?"":"https://")+lead.website,target:"_blank",style:{fontSize:11,color:"var(--bl)",flexShrink:0,textDecoration:"none"}},"Open \u2192")
+              )
+            ),
+
+            // SOCIALS
+            h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+              h("div",{className:"ef"},
+                h("div",{className:"ef-lbl"},"💼 LinkedIn"),
+                h("input",{className:"ef-inp",value:lead.linkedin||"",onChange:e=>upL("linkedin",e.target.value),placeholder:"linkedin.com/in/..."})
+              ),
+              h("div",{className:"ef"},
+                h("div",{className:"ef-lbl"},"📸 Instagram"),
+                h("input",{className:"ef-inp",value:lead.instagram||"",onChange:e=>upL("instagram",e.target.value),placeholder:"@handle"})
+              ),
+              h("div",{className:"ef"},
+                h("div",{className:"ef-lbl"},"📘 Facebook"),
+                h("input",{className:"ef-inp",value:lead.facebook||"",onChange:e=>upL("facebook",e.target.value),placeholder:"facebook.com/..."})
+              ),
+              h("div",{className:"ef"},
+                h("div",{className:"ef-lbl"},"🐦 Twitter/X"),
+                h("input",{className:"ef-inp",value:lead.twitter||"",onChange:e=>upL("twitter",e.target.value),placeholder:"@handle"})
+              )
+            )
+          )
+        ),
+
+        // ── CADENCE ──
+        h("div",{className:"psec"},
+          h("div",{className:"psec-title"},"17-Day Cadence"),
+          firstContact&&h("div",{style:{display:"flex",gap:16,marginBottom:10,flexWrap:"wrap"}},
+            h("div",{style:{fontSize:11}},h("span",{style:{color:"var(--tx3)"}},"First contact: "),h("strong",null,firstContact)),
+            currentDay&&h("div",{style:{fontSize:11}},h("span",{style:{color:"var(--tx3)"}},"Currently on: "),h("strong",null,"Day "+currentDay)),
+            nextDueDay&&h("div",{style:{fontSize:11,color:"var(--acd)",fontWeight:600}},"Next: Day "+nextDueDay+" — "+CADENCE_ACTIONS[nextDueDay])
+          ),
+          h("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}},CDAYS.map(d=>{
+            const {done,auto}=getDayStatus(d);
+            const isDue=currentDay&&d===currentDay&&!done;
+            const cls=auto?"auto":done?"done":isDue?"future":"future";
+            return h("div",{key:d,
+              className:"cad-dot "+cls,
+              style:{width:28,height:28,fontSize:9,fontWeight:700,outline:isDue?"2px solid var(--am)":"none",outlineOffset:2},
+              title:"Day "+d+": "+CADENCE_ACTIONS[d]+(auto?" (auto-logged)":done?" (done)":""),
+              onClick:()=>{if(!auto)toggleDay(d);else toast("Auto-logged from activity");}
+            },done?"\u2713":d,auto&&h("div",{className:"auto-pip"}));
+          })),
+          h("div",{style:{fontSize:10,color:"var(--tx3)"}},"Hover any dot to see the action. Click to mark manually.")
+        ),
+
+        // ── STATUS + SEGMENT ──
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Pipeline Stage"),
           h("div",{className:"spills"},STAGES.map(s=>h("button",{key:s,className:"spill "+(STAGE_SPILL[s]||"")+(lead.stage===s?" on":""),onClick:()=>{
-              if(s==="Won"){
-                setWonAmt(String(lead.dealAmount||6900));
-                setWonTerms(lead.dealTerms||"Full Pay");
-                setWonDeposit(String(lead.depositAmount||""));
-                setWonModal(true);
-              }
-              else{upL("stage",s);if(s==="Won")upL("wonAt",TODAY());toast("Stage → "+s);}
-            }},s)))
+            if(s==="Won"){setWonAmt(String(lead.dealAmount||6900));setWonTerms(lead.dealTerms||"Full Pay");setWonDeposit(String(lead.depositAmount||""));setWonModal(true);}
+            else{upL("stage",s);if(s==="Won")upL("wonAt",TODAY());toast("Stage \u2192 "+s);}
+          }},s)))
         ),
-        // SEGMENT
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Segment"),
-          h("div",{className:"segpills"},[{k:"A",c:"sa",l:"A — Perfect ICP"},{k:"B",c:"sb",l:"B — Good fit"},{k:"C",c:"sc",l:"C — Possible"}].map(s=>h("button",{key:s.k,className:"segpill "+s.c+(lead.seg===s.k?" on":""),onClick:()=>{upL("seg",s.k);}},s.l)))
+          h("div",{className:"segpills"},[{k:"A",c:"sa",l:"A \u2014 Perfect ICP"},{k:"B",c:"sb",l:"B \u2014 Good fit"},{k:"C",c:"sc",l:"C \u2014 Possible"}].map(s=>h("button",{key:s.k,className:"segpill "+s.c+(lead.seg===s.k?" on":""),onClick:()=>{upL("seg",s.k);}},s.l)))
         ),
-        // DEAL VALUE
+
+        // ── DEAL ──
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Deal"),
           h("div",{className:"eg2"},
             h("div",{className:"ef"},
-              h("div",{className:"ef-lbl"},"Deal Value (£)"),
-              h("input",{className:"ef-inp",type:"number",value:lead.dealAmount||"",onChange:e=>{
-                const v=e.target.value;
-                upL("dealAmount",v?parseInt(v):undefined);
-              },placeholder:"6900"})
+              h("div",{className:"ef-lbl"},"Deal Value (\u00a3)"),
+              h("input",{className:"ef-inp",type:"number",value:lead.dealAmount||"",onChange:e=>upL("dealAmount",e.target.value?parseInt(e.target.value):undefined),placeholder:"6900"})
             ),
             h("div",{className:"ef"},
               h("div",{className:"ef-lbl"},"Payment Terms"),
               h("select",{className:"ef-sel",value:lead.dealTerms||"",onChange:e=>upL("dealTerms",e.target.value)},
-                h("option",{value:""},"— Select —"),
+                h("option",{value:""},"\u2014 Select \u2014"),
                 h("option",{value:"Full Pay"},"Full Pay"),
-                h("option",{value:"Split Split"},"Split Split")
+                h("option",{value:"Split"},"Split")
               )
             ),
-            lead.dealTerms==="Split Split"&&h("div",{className:"ef"},
-              h("div",{className:"ef-lbl"},"Deposit Paid (£)"+(lead.depositAmount&&lead.dealAmount?" — "+Math.round(lead.depositAmount/lead.dealAmount*100)+"% collected":"")),
-              h("input",{className:"ef-inp",type:"number",value:lead.depositAmount||"",onChange:e=>{
-                const v=e.target.value;
-                upL("depositAmount",v?parseInt(v):undefined);
-              },placeholder:"e.g. 3450"})
+            lead.dealTerms==="Split"&&h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Deposit Paid (\u00a3)"+(lead.depositAmount&&lead.dealAmount?" \u2014 "+Math.round(lead.depositAmount/lead.dealAmount*100)+"% collected":"")),
+              h("input",{className:"ef-inp",type:"number",value:lead.depositAmount||"",onChange:e=>upL("depositAmount",e.target.value?parseInt(e.target.value):undefined),placeholder:"e.g. 3450"})
             ),
-            (lead.dealAmount)&&h("div",{style:{background:"var(--pul)",border:"1px solid #ddd6fe",borderRadius:8,padding:"8px 11px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
-              h("span",{style:{fontSize:11,color:"var(--pu)",fontWeight:600}},"💜 Commission"),
+            lead.dealAmount&&h("div",{style:{background:"var(--pul)",border:"1px solid #ddd6fe",borderRadius:8,padding:"8px 11px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              h("span",{style:{fontSize:11,color:"var(--pu)",fontWeight:600}},"\ud83d\udc9c Commission"),
               h("span",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:16,color:"var(--pu)"}},FMT((lead.dealAmount||0)*COMM_RATE))
             )
           )
         ),
-        // CADENCE
-        h("div",{className:"psec"},
-          h("div",{className:"psec-title"},"14-Day Cadence ("+totalDone+"/7 done)"),
-          h("div",{className:"cad-dots"},CDAYS.map(d=>{
-            const {done,auto,manual}=getDayStatus(d);
-            const cls=auto?"auto":done?"done":"future";
-            return h("div",{key:d,className:"cad-dot "+cls,title:auto?"Auto-logged":done?"Manually marked — click to undo":"Click to mark Day "+d,onClick:()=>{if(!auto)toggleDay(d);else toast("Auto-logged — remove activity to unmark");}},
-              done?"✓":d,
-              auto&&h("div",{className:"auto-pip"})
-            );
-          })),
-          totalDone<7&&h("div",{style:{fontSize:10,color:"var(--tx3)",marginTop:6}},
-            "Next: Day "+(CDAYS[totalDone]||"—")+" · Click any future dot to mark manually"
-          )
-        ),
-        // CONTACT INFO
-        h("div",{className:"psec"},
-          h("div",{className:"psec-title"},"Contact Info"),
-          h("div",{className:"eg2"},
-            h(EF,{label:"Phone",value:lead.phone,onChange:v=>upL("phone",v),placeholder:"+44 28 9000 0000"}),
-            h(EF,{label:"Email",value:lead.email,onChange:v=>upL("email",v),placeholder:"name@company.com"}),
-            h(EF,{label:"LinkedIn",value:lead.linkedin,onChange:v=>upL("linkedin",v),placeholder:"linkedin.com/in/..."}),
-            h(EF,{label:"Website",value:lead.website,onChange:v=>upL("website",v),placeholder:"company.co.uk"}),
-            h(EF,{label:"Address",value:lead.address,onChange:v=>upL("address",v),placeholder:"Street, City",full:true})
-          )
-        ),
-        // COMPANY
+
+        // ── COMPANY ──
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Company"),
           h("div",{className:"eg2"},
-            h(EF,{label:"Industry",value:lead.industry,onChange:v=>upL("industry",v),placeholder:"e.g. Electrical"}),
-            h(EF,{label:"Revenue Band",value:lead.revenue,onChange:v=>upL("revenue",v),type:"select",opts:["Under £500k","£500k–£1m","£1–2m","£2–5m","£5–10m","£10m+"],placeholder:"Select..."}),
-            h(EF,{label:"Employees",value:lead.employees,onChange:v=>upL("employees",v),type:"select",opts:["1–9","10–50","50–100","100–200","200+"],placeholder:"Select..."}),
+            h(EF,{label:"Industry",value:lead.industry,onChange:v=>upL("industry",v),placeholder:"e.g. Accountants"}),
+            h(EF,{label:"Revenue Band",value:lead.revenue,onChange:v=>upL("revenue",v),type:"select",opts:["Under \u00a3500k","\u00a3500k\u20131m","\u00a31\u20132m","\u00a32\u20135m","\u00a35\u201310m","\u00a310m+"],placeholder:"Select..."}),
+            h(EF,{label:"Employees",value:lead.employees,onChange:v=>upL("employees",v),type:"select",opts:["1\u20139","10\u201350","50\u2013100","100\u2013200","200+"],placeholder:"Select..."}),
             h(EF,{label:"Source",value:lead.source,onChange:v=>upL("source",v),type:"select",opts:["Scraped list","Door knock","Referral","Inbound","LinkedIn","Cold call"],placeholder:"Select..."})
           )
         ),
-        // NOTES
+
+        // ── LEAD OWNER ──
+        h("div",{className:"psec"},
+          h("div",{className:"psec-title"},"Ownership"),
+          h("div",{className:"ef"},
+            h("div",{className:"ef-lbl"},"Lead Owner"),
+            h("select",{className:"ef-sel",value:lead.owner||"",onChange:e=>upL("owner",e.target.value)},
+              h("option",{value:""},"\u2014 Unassigned \u2014"),
+              h("option",{value:"Sam"},"Sam (BDO)"),
+              h("option",{value:"Founder"},"Founder"),
+              h("option",{value:"Team"},"Team")
+            )
+          )
+        ),
+
+        // ── LAST ACTIVITY + NEXT ACTION ──
+        lastAct&&h("div",{className:"psec"},
+          h("div",{className:"psec-title"},"Status"),
+          h("div",{style:{display:"flex",flexDirection:"column",gap:7}},
+            h("div",{style:{background:"var(--bg2)",borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}},
+              h("div",null,
+                h("div",{style:{fontSize:10,fontWeight:700,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".6px",marginBottom:3}},"Last Touch"),
+                h("div",{style:{fontSize:12,fontWeight:600,color:"var(--tx)"}},lastAct.type+" \u2014 "+lastAct.outcome),
+                lastAct.note&&h("div",{style:{fontSize:11,color:"var(--tx2)",marginTop:2}},lastAct.note)
+              ),
+              h("div",{style:{fontSize:11,color:"var(--tx3)",flexShrink:0,marginLeft:8}},lastAct.loggedAt)
+            ),
+            nextDueDay&&h("div",{style:{background:"var(--aml)",border:"1px solid #fcd34d",borderRadius:8,padding:"9px 11px"}},
+              h("div",{style:{fontSize:10,fontWeight:700,color:"var(--am)",textTransform:"uppercase",letterSpacing:".6px",marginBottom:3}},"Next Action"),
+              h("div",{style:{fontSize:12,fontWeight:600,color:"var(--tx)"}},CADENCE_ACTIONS[nextDueDay]),
+              h("div",{style:{fontSize:11,color:"var(--tx2)",marginTop:2}},"Day "+nextDueDay+" of cadence")
+            )
+          )
+        ),
+
+        // ── NOTES ──
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Notes"),
           h("div",{style:{background:"var(--bg2)",borderRadius:8,padding:"9px 11px"}},
-            h("textarea",{style:{width:"100%",background:"transparent",border:"none",outline:"none",color:"var(--tx)",fontSize:12,resize:"none",lineHeight:1.6,fontFamily:"Arial,Helvetica,sans-serif",minHeight:70},value:lead.notes||"",onChange:e=>upL("notes",e.target.value),placeholder:"Add notes — objections, next steps, anything..."})
+            h("textarea",{style:{width:"100%",background:"transparent",border:"none",outline:"none",color:"var(--tx)",fontSize:12,resize:"none",lineHeight:1.6,fontFamily:"Arial,Helvetica,sans-serif",minHeight:70},value:lead.notes||"",onChange:e=>upL("notes",e.target.value),placeholder:"Add notes \u2014 objections, next steps, anything..."})
           )
         ),
-        // ACTIVITY TIMELINE
+
+        // ── ACTIVITY TIMELINE ──
         h("div",{className:"psec"},
           h("div",{className:"psec-title"},"Activity Timeline ("+acts.length+")"),
           acts.length===0
-            ?h("div",{style:{textAlign:"center",padding:14,color:"var(--tx3)",fontSize:12}},"No activities yet — log the first touch above")
+            ?h("div",{style:{textAlign:"center",padding:14,color:"var(--tx3)",fontSize:12}},"No activities yet")
             :acts.map(a=>{
               const sc=db.scripts.find(s=>s.id===a.scriptId);
               const dotCls=a.outcome==="Booked meeting"?"bk":a.outcome==="Positive reply"?"pos":"";
@@ -623,7 +794,7 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
                   h("div",{className:"tl-top"},
                     h("span",{className:"tl-type"},a.type),
                     h("span",{className:"tl-date"},a.loggedAt),
-                    sc&&h("span",{className:"tl-sc"},sc.name.split("—")[0].trim())
+                    sc&&h("span",{className:"tl-sc"},sc.name.split("\u2014")[0].trim())
                   ),
                   h("span",{className:"pill p-"+(APL[a.type]||"call"),style:{fontSize:9}},a.outcome),
                   a.note&&h("div",{className:"tl-note"},a.note)
@@ -633,154 +804,46 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat}){
         )
       )
     ),
+
+    // ── WON MODAL ──
     wonModal&&h("div",{className:"mbg",onClick:()=>setWonModal(false)},
       h("div",{className:"mbox",style:{width:380},onClick:e=>e.stopPropagation()},
-        h("div",{className:"mh"},
-          h("h2",null,"🏆 Mark as Won"),
-          h("button",{className:"mc2",onClick:()=>setWonModal(false)},"✕")
-        ),
+        h("div",{className:"mh"},h("h2",null,"\ud83c\udfc6 Mark as Won"),h("button",{className:"mc2",onClick:()=>setWonModal(false)},"\u2715")),
         h("div",{style:{marginBottom:14}},
-          h("div",{style:{fontSize:12,color:"var(--tx2)",marginBottom:12}},"Confirm the deal details for ",h("strong",null,lead.name)),
+          h("div",{style:{fontSize:12,color:"var(--tx2)",marginBottom:12}},"Confirm deal details for ",h("strong",null,lead.name)),
           h("div",{className:"fld",style:{marginBottom:10}},
-            h("label",{className:"flbl"},"Deal Amount (£)"),
+            h("label",{className:"flbl"},"Deal Amount (\u00a3)"),
             h("input",{className:"finp",type:"number",value:wonAmt,onChange:e=>setWonAmt(e.target.value),placeholder:"6900"})
           ),
           h("div",{className:"fld",style:{marginBottom:14}},
             h("label",{className:"flbl"},"Payment Terms"),
             h("div",{style:{display:"flex",gap:8,marginTop:4}},
-              ["Full Pay","Split Split"].map(t=>h("button",{key:t,className:"btn "+(wonTerms===t?"btn-p":"btn-s"),style:{flex:1},onClick:()=>setWonTerms(t)},t))
-            ),
-            wonTerms==="Split Split"&&h("div",{className:"fld",style:{marginTop:10}},
-              h("label",{className:"flbl"},"Deposit Paid Now (£)"+(wonDeposit&&wonAmt?" — "+Math.round(parseInt(wonDeposit)/parseInt(wonAmt)*100)+"% collected":"")),
-              h("input",{className:"finp",type:"number",value:wonDeposit,onChange:e=>setWonDeposit(e.target.value),placeholder:"e.g. 3450"})
+              ["Full Pay","Split"].map(t=>h("button",{key:t,className:"btn "+(wonTerms===t?"btn-p":"btn-s"),style:{flex:1},onClick:()=>setWonTerms(t)},t))
             )
+          ),
+          wonTerms==="Split"&&h("div",{className:"fld",style:{marginBottom:14}},
+            h("label",{className:"flbl"},"Deposit Paid Now (\u00a3)"+(wonDeposit&&wonAmt?" \u2014 "+Math.round(parseInt(wonDeposit)/parseInt(wonAmt)*100)+"% collected":"")),
+            h("input",{className:"finp",type:"number",value:wonDeposit,onChange:e=>setWonDeposit(e.target.value),placeholder:"e.g. 3450"})
           ),
           wonAmt&&h("div",{style:{background:"var(--pul)",border:"1px solid #ddd6fe",borderRadius:9,padding:"11px 14px"}},
             h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
-              h("span",{style:{fontSize:12,color:"var(--pu)",fontWeight:600}},"💜 Commission (on total)"),
+              h("span",{style:{fontSize:12,color:"var(--pu)",fontWeight:600}},"\ud83d\udc9c Commission (on total)"),
               h("span",{style:{fontFamily:"'Libre Baskerville',Georgia,serif",fontSize:18,color:"var(--pu)"}},FMT((parseInt(wonAmt)||6900)*COMM_RATE))
             ),
-            wonTerms==="Split Split"&&h("div",{style:{fontSize:11,color:"var(--pu)",marginTop:5,opacity:.75}},"Commission earned on full deal regardless of payment schedule")
+            wonTerms==="Split"&&h("div",{style:{fontSize:11,color:"var(--pu)",marginTop:5,opacity:.75}},"Commission earned on full deal regardless of payment schedule")
           )
         ),
         h("div",{style:{display:"flex",gap:8,justifyContent:"flex-end"}},
           h("button",{className:"btn btn-s",onClick:()=>setWonModal(false)},"Cancel"),
           h("button",{className:"btn btn-p",onClick:()=>{
             const dealAmt=parseInt(wonAmt)||6900;
-            const depAmt=wonTerms==="Split Split"&&wonDeposit?parseInt(wonDeposit)||0:0;
+            const depAmt=wonTerms==="Split"&&wonDeposit?parseInt(wonDeposit)||0:0;
             upd(p=>({...p,leads:p.leads.map(l=>l.id===lead.id?{...l,stage:"Won",dealAmount:dealAmt,dealTerms:wonTerms,depositAmount:depAmt||undefined,wonAt:TODAY()}:l)}));
-            const msg=wonTerms==="Split Split"&&depAmt?"🏆 Won! "+FMT(dealAmt)+" total · "+FMT(depAmt)+" deposit paid · "+FMT(dealAmt*COMM_RATE)+" commission":"🏆 Won! "+FMT(dealAmt)+" · Full Pay · "+FMT(dealAmt*COMM_RATE)+" commission";
-            toast(msg);
-            setWonModal(false);
-            onClose();
-          }},"Confirm Won ✓")
+            toast("\ud83c\udfc6 Won! "+FMT(dealAmt)+" \u00b7 "+(wonTerms==="Split"&&depAmt?FMT(depAmt)+" deposit":"Full Pay")+" \u00b7 "+FMT(dealAmt*COMM_RATE)+" commission");
+            setWonModal(false);onClose();
+          }},"Confirm Won \u2713")
         )
       )
-    )
-  );
-}
-</script>
-
-<script>
-// ── PERFORMANCE PANEL ──
-function PerfPanel({db,keys,onClose}){
-  const [view,setView]=useState("daily");
-  const [month,setMonth]=useState(()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");});
-
-  // Targets from settings
-  const tActions=keys.targetActions||TARGET_ACTIONS;
-  const tMeetings=keys.targetMeetings||TARGET_MEETINGS;
-  const tDeals=keys.targetDeals||4;
-  const tRevenue=keys.targetRevenue||27600;
-  const tComm=tRevenue*COMM_RATE;
-
-  // Filter activities by view
-  function getActs(){
-    const now=new Date();
-    if(view==="daily"){
-      return db.activities.filter(a=>a.loggedAt===TODAY());
-    } else if(view==="weekly"){
-      const ago=new Date();ago.setDate(ago.getDate()-7);
-      return db.activities.filter(a=>new Date(a.loggedAt)>=ago);
-    } else {
-      return db.activities.filter(a=>a.loggedAt&&a.loggedAt.startsWith(month));
-    }
-  }
-
-  function getWon(){
-    if(view==="daily") return db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)===TODAY()).length;
-    if(view==="weekly"){const ago=new Date();ago.setDate(ago.getDate()-7);return db.leads.filter(l=>l.stage==="Won"&&new Date(l.wonAt||l.createdAt)>=ago).length;}
-    return db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)&&(l.wonAt||l.createdAt).startsWith(month)).length;
-  }
-
-  const acts=getActs();
-  const wonCount=getWon();
-  const wonLeads=db.leads.filter(l=>l.stage==="Won");
-  const meetings=acts.filter(a=>a.outcome==="Booked meeting").length;
-  const rev=view==="monthly"
-    ?db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)&&(l.wonAt||l.createdAt).startsWith(month)).reduce((s,l)=>s+(l.dealAmount||6900),0)
-    :view==="weekly"
-      ?db.leads.filter(l=>{const ago=new Date();ago.setDate(ago.getDate()-7);return l.stage==="Won"&&new Date(l.wonAt||l.createdAt)>=ago;}).reduce((s,l)=>s+(l.dealAmount||6900),0)
-      :db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)===TODAY()).reduce((s,l)=>s+(l.dealAmount||6900),0);
-  const comm=rev*COMM_RATE;
-
-  // Scale targets by view
-  const dayScale=view==="daily"?1:view==="weekly"?7:new Date(parseInt(month.split("-")[0]),parseInt(month.split("-")[1]),0).getDate();
-  const actTarget=view==="daily"?tActions:view==="weekly"?tActions*7:tActions*dayScale;
-  const meetTarget=view==="daily"?Math.ceil(tMeetings/5):view==="weekly"?tMeetings:Math.round(tMeetings*4.3);
-  const dealTarget=view==="daily"?Math.ceil(tDeals/30):view==="weekly"?Math.ceil(tDeals/4):tDeals;
-  const revTarget=view==="daily"?Math.round(tRevenue/30):view==="weekly"?Math.round(tRevenue/4):tRevenue;
-  const commTarget=revTarget*COMM_RATE;
-
-  function barClass(actual,target){
-    const pct=target>0?actual/target:0;
-    if(pct>=1) return "over";
-    if(pct>=0.7) return "on-track";
-    return "under";
-  }
-
-  function PerfRow({label,actual,target,fmt,unit}){
-    const pct=target>0?Math.min(actual/target,1.5):0;
-    const cls=barClass(actual,target);
-    const color=cls==="over"?"var(--ac)":cls==="on-track"?"var(--pu)":"var(--rd)";
-    return h("div",{className:"perf-row"},
-      h("div",{className:"perf-label"},
-        h("span",{className:"perf-lname"},label),
-        h("span",{className:"perf-lval",style:{color}},
-          (fmt?FMT(actual):actual)+(unit?" "+unit:""),
-          h("span",{style:{color:"var(--tx3)",fontWeight:400,marginLeft:4}},
-            "/ "+(fmt?FMT(target):target)+(unit?" "+unit:"")
-          )
-        )
-      ),
-      h("div",{className:"perf-bar"},
-        h("div",{className:"perf-fill "+cls,style:{width:Math.min(pct*100,100)+"%"}})
-      )
-    );
-  }
-
-  return h("div",{className:"perf-panel",onClick:e=>e.stopPropagation()},
-    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
-      h("div",{style:{fontSize:12,fontWeight:700,color:"var(--tx)"}},"Performance Tracker"),
-      h("button",{style:{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:15},onClick:onClose},"✕")
-    ),
-    h("div",{className:"perf-tabs"},
-      [["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]].map(([v,l])=>
-        h("button",{key:v,className:"perf-tab"+(view===v?" on":""),onClick:()=>setView(v)},l)
-      )
-    ),
-    view==="monthly"&&h("div",{style:{marginBottom:10}},
-      h("input",{type:"month",value:month,onChange:e=>setMonth(e.target.value),style:{background:"var(--bg2)",border:"1px solid var(--bd2)",borderRadius:8,color:"var(--tx)",padding:"5px 9px",fontSize:11,width:"100%",outline:"none"}})
-    ),
-    h(PerfRow,{label:"📞 Actions",actual:acts.length,target:actTarget}),
-    h(PerfRow,{label:"📅 Meetings",actual:meetings,target:meetTarget}),
-    h(PerfRow,{label:"🏆 Deals Closed",actual:wonCount,target:dealTarget}),
-    h(PerfRow,{label:"💰 Revenue",actual:rev,target:revTarget,fmt:true}),
-    h(PerfRow,{label:"💜 Commission",actual:comm,target:commTarget,fmt:true}),
-    h("div",{style:{marginTop:10,paddingTop:10,borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--tx3)"}},
-      h("span",null,h("span",{style:{color:"var(--rd)",fontWeight:700}},"■")," Under"),
-      h("span",null,h("span",{style:{color:"var(--pu)",fontWeight:700}},"■")," On track"),
-      h("span",null,h("span",{style:{color:"var(--ac)",fontWeight:700}},"■")," Over achieved")
     )
   );
 }
@@ -888,12 +951,12 @@ function App(){
   }
 
   // Convert DB row to app format
-  function dbToLead(r){return{id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",address:r.address||"",website:r.website||"",industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"B",source:r.source||"",stage:r.stage||"Prospecting",dealAmount:r.deal_amount,dealTerms:r.deal_terms,depositAmount:r.deposit_amount,wonAt:r.won_at,notes:r.notes||"",createdAt:r.created_at?.split("T")[0]||TODAY()};}
+  function dbToLead(r){return{id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",address:r.address||"",website:r.website||"",industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"B",source:r.source||"",stage:r.stage||"Prospecting",dealAmount:r.deal_amount,dealTerms:r.deal_terms,depositAmount:r.deposit_amount,wonAt:r.won_at,postcode:r.postcode||"",instagram:r.instagram||"",facebook:r.facebook||"",twitter:r.twitter||"",owner:r.owner||"",notes:r.notes||"",createdAt:r.created_at?.split("T")[0]||TODAY()};}
   function dbToActivity(r){return{id:r.id,leadId:r.lead_id,leadName:r.lead_name||"",type:r.type||"Call",outcome:r.outcome||"",scriptId:r.script_id,day:r.day||1,note:r.note||"",loggedAt:r.logged_at||TODAY()};}
 
   // Save lead to Supabase
   async function saveLead(lead){
-    const row={name:lead.name,company:lead.company,role:lead.role,phone:lead.phone,email:lead.email,linkedin:lead.linkedin,address:lead.address,website:lead.website,industry:lead.industry,revenue:lead.revenue,employees:lead.employees,seg:lead.seg,source:lead.source,stage:lead.stage,deal_amount:lead.dealAmount||null,deal_terms:lead.dealTerms||null,deposit_amount:lead.depositAmount||null,won_at:lead.wonAt||null,notes:lead.notes};
+    const row={name:lead.name,company:lead.company,role:lead.role,phone:lead.phone,email:lead.email,linkedin:lead.linkedin,address:lead.address,postcode:lead.postcode||null,website:lead.website,instagram:lead.instagram||null,facebook:lead.facebook||null,twitter:lead.twitter||null,industry:lead.industry,revenue:lead.revenue,employees:lead.employees,seg:lead.seg,source:lead.source,stage:lead.stage,owner:lead.owner||null,deal_amount:lead.dealAmount||null,deal_terms:lead.dealTerms||null,deposit_amount:lead.depositAmount||null,won_at:lead.wonAt||null,notes:lead.notes};
     if(lead.id&&typeof lead.id==="string"&&lead.id.includes("-")){
       await supa.from("leads").update(row).eq("id",lead.id);
     } else {
@@ -990,11 +1053,11 @@ function App(){
       ?h("div",{className:"chat-outer"},h(AILogger,{db,upd,toast:shT,onLeadOpen:setOpenLead}))
       :h("div",{className:"content"},
         view==="daily"&&h(Daily,{db,go:setView,onOpen:setOpenLead,keys}),
-        view==="pipeline"&&h(Pipeline,{db,upd,toast:shT,onOpen:setOpenLead,onImport:()=>setShowImport(true)}),
+        view==="pipeline"&&h(Pipeline,{db,upd,toast:shT,onOpen:setOpenLead,onImport:()=>setShowImport(true),role}),
         view==="callcentral"&&h(CallCentral,{db,upd,keys,toast:shT,onOpen:setOpenLead}),
         view==="report"&&h(Report,{db})
       ),
-    currentLead&&h(LeadPanel,{leadId:openLead,db,upd,onClose:()=>setOpenLead(null),toast:shT,goChat:()=>setView("chat")}),
+    currentLead&&h(LeadPanel,{leadId:openLead,db,upd,onClose:()=>setOpenLead(null),toast:shT,goChat:()=>setView("chat"),role,keys}),
     showSettings&&h(SettingsModal,{keys,saveKeys,db,upd,toast:shT,onClose:()=>setShowSettings(false),logout}),
     showImport&&h(ImportModal,{db,upd,toast:shT,onClose:()=>setShowImport(false)}),
     h("div",{className:"toast"+(toast.show?" show":"")},toast.msg)
@@ -1211,7 +1274,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
 </script>
 
 <script>
-function Pipeline({db,upd,toast,onOpen,onImport}){
+function Pipeline({db,upd,toast,onOpen,onImport,role}){
   const [addCol,setAddCol]=useState(null); // which stage to add lead to
   const [addForm,setAddForm]=useState({name:"",company:"",phone:"",role:"",seg:"A"});
   const dragId=useRef(null);
@@ -1259,7 +1322,19 @@ function Pipeline({db,upd,toast,onOpen,onImport}){
             h("span",null,STAGE_EMOJI[stage]+" "+stage),
             h("div",{style:{display:"flex",alignItems:"center",gap:5}},
               stage==="Won"&&h("span",{style:{fontSize:9,color:"var(--acd)",fontWeight:600}},FMT(stageRev)),
-              h("span",{className:"kbadge"},leads.length)
+              h("span",{className:"kbadge"},leads.length),
+              role==="founder"&&leads.length>0&&h("button",{style:{background:"none",border:"none",fontSize:10,color:"var(--tx3)",cursor:"pointer",padding:"0 2px"},title:"Clear all "+stage+" leads",onClick:async(e)=>{
+                e.stopPropagation();
+                if(!confirm("Delete all "+leads.length+" leads in "+stage+"? Cannot be undone."))return;
+                for(const l of leads){
+                  await supa.from("activities").delete().eq("lead_id",l.id);
+                  await supa.from("manual_days").delete().eq("lead_id",l.id);
+                  await supa.from("leads").delete().eq("id",l.id);
+                }
+                const ids=leads.map(l=>l.id);
+                upd(p=>({...p,leads:p.leads.filter(l=>!ids.includes(l.id)),activities:p.activities.filter(a=>!ids.includes(a.leadId))}));
+                toast("Cleared "+stage);
+              }},"✕ clear")
             )
           ),
           h("div",{className:"kcol-cards"},
@@ -1667,9 +1742,19 @@ function SettingsModal({keys,saveKeys,db,upd,toast,onClose,logout}){
       ),
       // DANGER ZONE
       h("div",{className:"set-sec",style:{borderColor:"#fca5a5"}},
-        h("div",{className:"set-title",style:{color:"var(--rd)"}},"⚠️ Account"),
-        h("div",{className:"set-sub"},"Sign out of the Sales OS on this device."),
-        h("button",{className:"btn btn-s",style:{borderColor:"var(--rd)",color:"var(--rd)"},onClick:()=>{onClose();logout&&logout();}},"Sign Out")
+        h("div",{className:"set-title",style:{color:"var(--rd)"}},"⚠️ Account & Data"),
+        h("div",{className:"set-sub"},"Danger zone — these actions cannot be undone."),
+        h("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+          h("button",{className:"btn btn-s",style:{borderColor:"var(--rd)",color:"var(--rd)"},onClick:async()=>{
+            if(!confirm("Delete ALL leads and activities? This wipes the entire database. Cannot be undone."))return;
+            await supa.from("activities").delete().neq("id","00000000-0000-0000-0000-000000000000");
+            await supa.from("manual_days").delete().neq("id","00000000-0000-0000-0000-000000000000");
+            await supa.from("leads").delete().neq("id","00000000-0000-0000-0000-000000000000");
+            upd(()=>({leads:[],activities:[],scripts:DEFAULT_SCRIPTS,manualDays:{},chatHistory:[]}));
+            toast("All leads cleared");onClose();
+          }},"🗑️ Clear All Leads"),
+          h("button",{className:"btn btn-s",style:{borderColor:"var(--rd)",color:"var(--rd)"},onClick:()=>{onClose();logout&&logout();}},"Sign Out")
+        )
       )
     )
   );

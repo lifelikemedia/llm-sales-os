@@ -1779,7 +1779,7 @@ function ImportModal({db,upd,toast,onClose}){
       const rows=lines.slice(1).map(l=>{const v=parseLine(l);const o={};hdrs.forEach((h,i)=>o[h]=(v[i]||"").trim());return o;});
       const map={},used=new Set();
       // Direct matches for common sheet headers including your format
-      const directMap={"BRAND":"company","brand":"company","Brand":"company","Company Name":"company","INDUSTRY":"industry","Industry":"industry","industry":"industry","Contact":"name","contact":"name","CONTACT":"name","Role":"role","ROLE":"role","Phone Number":"phone","PHONE NUMBER":"phone","phone number":"phone","Phone":"phone","PHONE":"phone","Email":"email","EMAIL":"email","Email Address":"email","Address":"location","ADDRESS":"location","address":"location","Town":"location","TOWN":"location","Postcode":"postcode","POSTCODE":"postcode","postcode":"postcode"};
+      const directMap={"BRAND":"company","brand":"company","Brand":"company","Company Name":"company","INDUSTRY":"industry","Industry":"industry","industry":"industry","Contact":"name","contact":"name","CONTACT":"name","Role":"role","ROLE":"role","Phone Number":"phone","PHONE NUMBER":"phone","phone number":"phone","Phone":"phone","PHONE":"phone","Email":"email","EMAIL":"email","Email Address":"email","Address":"address","ADDRESS":"address","address":"address","Town":"location","TOWN":"location","town":"location","Postcode":"postcode","POSTCODE":"postcode","postcode":"postcode"};
       const fc=hdrs.find(x=>/first.?name/i.test(x)),lc=hdrs.find(x=>/last.?name/i.test(x));
       if(fc){map[fc]="first_name";used.add("first_name");}if(lc){map[lc]="last_name";used.add("last_name");}
       hdrs.forEach(hh=>{if(map[hh])return;if(directMap[hh]&&!used.has(directMap[hh])){map[hh]=directMap[hh];used.add(directMap[hh]);return;}const hl=hh.toLowerCase().trim();let bf="",bs=0;Object.entries(FP).forEach(([f,ps])=>{if(used.has(f))return;ps.forEach(p=>{const sc=hl===p?4:hl.includes(p)||p.includes(hl)?3:lev(hl,p)<=2?2:0;if(sc>bs){bs=sc;bf=f;}});});if(bf&&bs>=2){map[hh]=bf;used.add(bf);}else map[hh]="";});
@@ -1806,7 +1806,27 @@ function ImportModal({db,upd,toast,onClose}){
   function doImport(){
     const nl=proc.filter(r=>!r._dup&&(r.name||r.company));
     const a=nl.filter(r=>r.seg==="A").length,b=nl.filter(r=>r.seg==="B").length,c=nl.filter(r=>r.seg==="C").length;
-    upd(p=>({...p,leads:[...p.leads,...nl.map(r=>({id:Date.now()+Math.random(),name:r.name||"",company:r.company||"",role:r.role||"",phone:r.phone||"",email:r.email||"",linkedin:"",address:"",website:"",industry:"",revenue:"",employees:"",seg:r.seg,source:r.source,stage:"Prospecting",createdAt:TODAY(),notes:""}))]}));
+    upd(p=>({...p,leads:[...p.leads,...nl.map(r=>({id:Date.now()+Math.random(),
+              name:r.name||"",
+              company:r.company||"",
+              role:r.role||"",
+              phone:r.phone||"",
+              email:r.email||"",
+              linkedin:r.linkedin||"",
+              address:r.address||r.location||"",
+              postcode:r.postcode||"",
+              website:r.website||"",
+              instagram:"",facebook:"",twitter:"",
+              industry:r.industry||"",
+              revenue:r.revenue||"",
+              employees:r.employees||"",
+              seg:r.seg,
+              source:r.source||"Scraped list",
+              owner:"",
+              stage:"Prospecting",
+              createdAt:TODAY(),
+              notes:""
+            }))]}));
     setSum({total:nl.length,a,b,c});setPhase("done");toast("🎉 "+nl.length+" leads imported into Prospecting!");
   }
 

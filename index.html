@@ -452,6 +452,7 @@ function loadKeys(){
     rcClientId:"AP4XNoObd08bzKSaiMe60H",
     rcClientSecret:"Yweuv2Y2dwsbMhePD2pvufWVbpXjGpxwNbbZrt14oFCJ",
     rcAccountId:"",
+    rcFromNumber:"",
     rcJwt:"eyJraWQiOiI4NzYyZjU5OGQwNTk0NGRiODZiZjVjYTk3ODA0NzYwOCIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJhdWQiOiJodHRwczovL3BsYXRmb3JtLnJpbmdjZW50cmFsLmNvbS9yZXN0YXBpL29hdXRoL3Rva2VuIiwic3ViIjoiMTIyODIyOTA0NSIsImlzcyI6Imh0dHBzOi8vcGxhdGZvcm0ucmluZ2NlbnRyYWwuY29tIiwiZXhwIjozOTIzODE5Nzc4LCJpYXQiOjE3NzYzMzYxMzEsImp0aSI6IklQMUx4Z3dqU2FHU2I2N1QzVmdhakEifQ.D8iPK76N7gb8t0mXPQshWQ7Qv_rS7abpPpWJNzNjGwZLFt-ah_SmyTuTSKXFpV3Gq_QKauOoQqLiOUAHjDB-yzak0asbAj2pcIgNXnjfUzcnacWDj7e6VDur814iHFDBOfHMfOtcNgrKM-kAFV80UQEhYxzwTHyX77mSuFARWS8J5Ygg3fk-dpn1xxGTl5tmJ1jzIkSrh7EFsgp3td6O5Chyrgh401m7U5DXYe_F52zgxDhACS61qflNRf3wVHWMf4HA-68jN4QW8ftRuXgUmpt4c3GBhkazUx3mApiKocVq5i-64IjKzBAizRWicYDWRzxPR-ofR-9j7Xwn1TvBvQ",
     ffApiKey:"",
     targetActions:100,
@@ -626,7 +627,7 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
                       const callRes=await fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{
                         method:"POST",
                         headers:{"Content-Type":"application/json","Authorization":"Bearer "+tokenData.access_token},
-                        body:JSON.stringify({from:{phoneNumber:lead.phone},to:{phoneNumber:lead.phone},playPrompt:false})
+                        body:JSON.stringify({from:{phoneNumber:keys.rcFromNumber||lead.phone},to:{phoneNumber:lead.phone},playPrompt:false})
                       });
                       const callData=await callRes.json();
                       if(callData.id){toast("✅ Calling via RingCentral — your phone will ring first");}
@@ -1455,7 +1456,7 @@ function CallCentral({db,upd,keys,toast,onOpen}){
     fetch("https://platform.ringcentral.com/restapi/oauth/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","Authorization":"Basic "+btoa(keys.rcClientId+":"+keys.rcClientSecret)},body:"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="+keys.rcJwt})
     .then(r=>r.json()).then(td=>{
       if(!td.access_token){toast("RingCentral auth failed");setCallState("idle");return;}
-      return fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+td.access_token},body:JSON.stringify({from:{phoneNumber:lead.phone},to:{phoneNumber:lead.phone},playPrompt:false})});
+      return fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+td.access_token},body:JSON.stringify({from:{phoneNumber:"02844572084"},to:{phoneNumber:lead.phone},playPrompt:false})});
     }).then(r=>r&&r.json()).then(cd=>{if(cd&&cd.id){setCallState("connected");toast("✅ Call placed");}else if(cd){toast("Call failed");setCallState("idle");}})
     .catch(()=>setTimeout(()=>{setCallState("connected");},1500));
   }
@@ -1719,7 +1720,8 @@ function SettingsModal({keys,saveKeys,db,upd,toast,onClose,logout}){
           h("div",{className:"fld"},h("label",{className:"flbl"},"Client ID"),h("input",{className:"finp",value:f.rcClientId||"",onChange:e=>setF(p=>({...p,rcClientId:e.target.value})),placeholder:"Your Client ID"})),
           h("div",{className:"fld"},h("label",{className:"flbl"},"Client Secret"),h("input",{className:"finp",type:"password",value:f.rcClientSecret||"",onChange:e=>setF(p=>({...p,rcClientSecret:e.target.value})),placeholder:"Your Client Secret"})),
           h("div",{className:"fld"},h("label",{className:"flbl"},"Account ID (optional)"),h("input",{className:"finp",value:f.rcAccountId||"",onChange:e=>setF(p=>({...p,rcAccountId:e.target.value})),placeholder:"Leave blank for default"})),
-          h("div",{className:"fld"},h("label",{className:"flbl"},"JWT Token"),h("input",{className:"finp",type:"password",value:f.rcJwt||"",onChange:e=>setF(p=>({...p,rcJwt:e.target.value})),placeholder:"Your JWT token"}))
+          h("div",{className:"fld"},h("label",{className:"flbl"},"JWT Token"),h("input",{className:"finp",type:"password",value:f.rcJwt||"",onChange:e=>setF(p=>({...p,rcJwt:e.target.value})),placeholder:"Your JWT token"})),
+          h("div",{className:"fld",style:{gridColumn:"1/-1"}},h("label",{className:"flbl"},"Your RingCentral Number (the number that rings YOU first)"),h("input",{className:"finp",value:f.rcFromNumber||"",onChange:e=>setF(p=>({...p,rcFromNumber:e.target.value})),placeholder:"e.g. +442890001234"}))
         )
       ),
 

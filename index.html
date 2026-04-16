@@ -445,7 +445,28 @@ function defDB(){return{
 };}
 
 function loadDB(){try{const r=localStorage.getItem("sos_v3");if(r)return JSON.parse(r);}catch(e){}return defDB();}
-function loadKeys(){try{const r=localStorage.getItem("sos_keys_v1");if(r)return JSON.parse(r);}catch(e){}return{rcClientId:"",rcClientSecret:"",rcAccountId:"",rcJwt:"",ffApiKey:"",targetActions:100,targetMeetings:6,targetDeals:4,targetRevenue:27600};}
+function loadKeys(){
+  const defaults={
+    rcClientId:"AP4XNoObd08bzKSaiMe60H",
+    rcClientSecret:"Yweuv2Y2dwsbMhePD2pvufWVbpXjGpxwNbbZrt14oFCJ",
+    rcAccountId:"",
+    rcJwt:"eyJraWQiOiI4NzYyZjU5OGQwNTk0NGRiODZiZjVjYTk3ODA0NzYwOCIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJhdWQiOiJodHRwczovL3BsYXRmb3JtLnJpbmdjZW50cmFsLmNvbS9yZXN0YXBpL29hdXRoL3Rva2VuIiwic3ViIjoiMTIyODIyOTA0NSIsImlzcyI6Imh0dHBzOi8vcGxhdGZvcm0ucmluZ2NlbnRyYWwuY29tIiwiZXhwIjozOTIzODE5Nzc4LCJpYXQiOjE3NzYzMzYxMzEsImp0aSI6IklQMUx4Z3dqU2FHU2I2N1QzVmdhakEifQ.D8iPK76N7gb8t0mXPQshWQ7Qv_rS7abpPpWJNzNjGwZLFt-ah_SmyTuTSKXFpV3Gq_QKauOoQqLiOUAHjDB-yzak0asbAj2pcIgNXnjfUzcnacWDj7e6VDur814iHFDBOfHMfOtcNgrKM-kAFV80UQEhYxzwTHyX77mSuFARWS8J5Ygg3fk-dpn1xxGTl5tmJ1jzIkSrh7EFsgp3td6O5Chyrgh401m7U5DXYe_F52zgxDhACS61qflNRf3wVHWMf4HA-68jN4QW8ftRuXgUmpt4c3GBhkazUx3mApiKocVq5i-64IjKzBAizRWicYDWRzxPR-ofR-9j7Xwn1TvBvQ",
+    ffApiKey:"",
+    targetActions:100,
+    targetMeetings:6,
+    targetDeals:4,
+    targetRevenue:27600
+  };
+  try{
+    const r=localStorage.getItem("sos_keys_v1");
+    if(r){
+      const saved=JSON.parse(r);
+      // Merge saved over defaults — saved values take priority but defaults fill gaps
+      return Object.assign({},defaults,saved);
+    }
+  }catch(e){}
+  return defaults;
+}
 </script>
 
 <script>

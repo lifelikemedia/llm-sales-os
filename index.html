@@ -1811,11 +1811,29 @@ function SettingsModal({keys,saveKeys,db,upd,toast,onClose,logout}){
         h("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
           h("button",{className:"btn btn-s",style:{borderColor:"var(--rd)",color:"var(--rd)"},onClick:async()=>{
             if(!confirm("Delete ALL leads and activities? This wipes the entire database. Cannot be undone."))return;
-            await supa.from("activities").delete().neq("id","00000000-0000-0000-0000-000000000000");
-            await supa.from("manual_days").delete().neq("id","00000000-0000-0000-0000-000000000000");
-            await supa.from("leads").delete().neq("id","00000000-0000-0000-0000-000000000000");
-            upd(()=>({leads:[],activities:[],scripts:DEFAULT_SCRIPTS,manualDays:{},chatHistory:[]}));
-            toast("All leads cleared");onClose();
+            try{
+              // Delete all activities first (foreign key constraint)
+              const {data:acts}=await supa.from("activities").select("id");
+              if(acts&&acts.length>0){
+                const actIds=acts.map(a=>a.id);
+                await supa.from("activities").delete().in("id",actIds);
+              }
+              // Delete manual days
+              const {data:mds}=await supa.from("manual_days").select("id");
+              if(mds&&mds.length>0){
+                await supa.from("manual_days").delete().in("id",mds.map(m=>m.id));
+              }
+              // Delete all leads
+              const {data:leads}=await supa.from("leads").select("id");
+              if(leads&&leads.length>0){
+                await supa.from("leads").delete().in("id",leads.map(l=>l.id));
+              }
+              toast("All leads cleared — reloading...");
+              setTimeout(()=>window.location.reload(),1000);
+            }catch(e){
+              toast("Error: "+e.message);
+            }
+            onClose();
           }},"🗑️ Clear All Leads"),
           h("button",{className:"btn btn-s",style:{borderColor:"var(--rd)",color:"var(--rd)"},onClick:()=>{onClose();logout&&logout();}},"Sign Out")
         )

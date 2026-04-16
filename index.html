@@ -607,10 +607,33 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
 
             // PHONE
             h("div",{className:"ef"},
-              h("div",{className:"ef-lbl"},"Phone",keys&&keys.rcClientId?" (click to dial)":""),
+              h("div",{className:"ef-lbl"},"Phone"),
               h("div",{style:{display:"flex",alignItems:"center",gap:6}},
                 h("input",{className:"ef-inp",style:{fontFamily:"'Courier New',monospace"},value:lead.phone||"",onChange:e=>upL("phone",e.target.value),placeholder:"+44 28 9000 0000"}),
-                lead.phone&&h("a",{href:"tel:"+lead.phone,style:{fontSize:11,color:"var(--ac)",flexShrink:0,textDecoration:"none",fontWeight:600}},"📞 Call")
+                lead.phone&&h("button",{
+                  className:"btn btn-ok btn-sm",
+                  style:{flexShrink:0,fontWeight:600},
+                  onClick:async()=>{
+                    toast("📞 Calling "+lead.name+"...");
+                    try{
+                      const tokenRes=await fetch("https://platform.ringcentral.com/restapi/oauth/token",{
+                        method:"POST",
+                        headers:{"Content-Type":"application/x-www-form-urlencoded","Authorization":"Basic "+btoa(keys.rcClientId+":"+keys.rcClientSecret)},
+                        body:"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="+keys.rcJwt
+                      });
+                      const tokenData=await tokenRes.json();
+                      if(!tokenData.access_token){toast("RingCentral auth failed — check Settings");return;}
+                      const callRes=await fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{
+                        method:"POST",
+                        headers:{"Content-Type":"application/json","Authorization":"Bearer "+tokenData.access_token},
+                        body:JSON.stringify({from:{phoneNumber:lead.phone},to:{phoneNumber:lead.phone},playPrompt:false})
+                      });
+                      const callData=await callRes.json();
+                      if(callData.id){toast("✅ Calling via RingCentral — your phone will ring first");}
+                      else{toast("❌ Call failed: "+(callData.message||"Check RingCentral settings"));}
+                    }catch(e){toast("❌ RingCentral error: "+e.message);}
+                  }
+                },"📞 Call")
               )
             ),
 

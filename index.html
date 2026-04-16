@@ -385,14 +385,17 @@ const FP = {name:["full name","contact name","name","person"],company:["company"
 function lev(a,b){const m=a.length,n=b.length,dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i||j));for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);return dp[m][n];}
 function normalisePhone(p){
   if(!p) return "";
-  // Strip all non-numeric except leading +
-  let n=p.replace(/[^\d+]/g,"");
-  // Remove leading country code variations
-  if(n.startsWith("00")) n="+"+n.slice(2);
-  if(n.startsWith("44") && !n.startsWith("+44")) n="+"+n;
-  if(n.startsWith("+440")) n="+44"+n.slice(4); // +440... → +44...
-  if(n.match(/^0[0-9]/)) n="+44"+n.slice(1);   // 07... or 02... → +447... or +442...
-  if(n.match(/^[1-9]\d{9,}$/) && !n.startsWith("+")) n="+44"+n; // bare digits
+  let n=p.replace(/[^\d]/g,""); // strip all non-digits
+  if(n.startsWith("00")) n=n.slice(2); // 0044... → 44...
+  if(n.startsWith("44")) n=n.slice(2); // 44... → local digits
+  if(!n.startsWith("0")) n="0"+n;       // ensure leading 0
+  return n;
+}
+
+function normalisePhoneE164(p){
+  // E.164 version for RingCentral API calls
+  let n=normalisePhone(p);
+  if(n.startsWith("0")) n="+44"+n.slice(1);
   return n;
 }
 
@@ -640,7 +643,7 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
                       const callRes=await fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{
                         method:"POST",
                         headers:{"Content-Type":"application/json","Authorization":"Bearer "+tokenData.access_token},
-                        body:JSON.stringify({from:{phoneNumber:"+442844572084"},to:{phoneNumber:(()=>{let p=(lead.phone||"").replace(/[\s()\-\.]/g,"");if(p.startsWith("00"))p="+"+p.slice(2);if(p.startsWith("44")&&!p.startsWith("+44"))p="+"+p;if(p.match(/^0[0-9]/))p="+44"+p.slice(1);if(!p.startsWith("+"))p="+44"+p;return p;})()},playPrompt:false})
+                        body:JSON.stringify({from:{phoneNumber:"02844572084"},to:{phoneNumber:normalisePhone(lead.phone)},playPrompt:false})
                       });
                       const callData=await callRes.json();
                       if(callData.id){toast("✅ Calling via RingCentral — your phone will ring first");}
@@ -1469,7 +1472,7 @@ function CallCentral({db,upd,keys,toast,onOpen}){
     fetch("https://platform.ringcentral.com/restapi/oauth/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","Authorization":"Basic "+btoa(keys.rcClientId+":"+keys.rcClientSecret)},body:"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="+keys.rcJwt})
     .then(r=>r.json()).then(td=>{
       if(!td.access_token){toast("RingCentral auth failed");setCallState("idle");return;}
-      return fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+td.access_token},body:JSON.stringify({from:{phoneNumber:"+442844572084"},to:{phoneNumber:(()=>{let p=(lead.phone||"").replace(/[\s\(\)\-\.]/g,"");if(p.startsWith("00"))p="+"+p.slice(2);if(p.startsWith("44")&&!p.startsWith("+44"))p="+"+p;if(p.match(/^0[0-9]/))p="+44"+p.slice(1);if(!p.startsWith("+"))p="+44"+p;return p;})()},playPrompt:false})});
+      return fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+td.access_token},body:JSON.stringify({from:{phoneNumber:"02844572084"},to:{phoneNumber:(()=>{let p=(lead.phone||"").replace(/[\s\(\)\-\.]/g,"");if(p.startsWith("00"))p="+"+p.slice(2);if(p.startsWith("44")&&!p.startsWith("+44"))p="+"+p;if(p.match(/^0[0-9]/))p="+44"+p.slice(1);if(!p.startsWith("+"))p="+44"+p;return p;})()},playPrompt:false})});
     }).then(r=>r&&r.json()).then(cd=>{if(cd&&cd.id){setCallState("connected");toast("✅ Call placed");}else if(cd){toast("Call failed");setCallState("idle");}})
     .catch(()=>setTimeout(()=>{setCallState("connected");},1500));
   }

@@ -1456,7 +1456,7 @@ function CallCentral({db,upd,keys,toast,onOpen}){
     fetch("https://platform.ringcentral.com/restapi/oauth/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","Authorization":"Basic "+btoa(keys.rcClientId+":"+keys.rcClientSecret)},body:"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="+keys.rcJwt})
     .then(r=>r.json()).then(td=>{
       if(!td.access_token){toast("RingCentral auth failed");setCallState("idle");return;}
-      return fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+td.access_token},body:JSON.stringify({from:{phoneNumber:"02844572084"},to:{phoneNumber:lead.phone},playPrompt:false})});
+      return fetch("https://platform.ringcentral.com/restapi/v1.0/account/"+(keys.rcAccountId||"~")+"/extension/~/ring-out",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+td.access_token},body:JSON.stringify({from:{phoneNumber:"+442844572084"},to:{phoneNumber:(()=>{let p=(lead.phone||"").replace(/[\s\(\)\-\.]/g,"");if(p.startsWith("00"))p="+"+p.slice(2);if(p.startsWith("44")&&!p.startsWith("+44"))p="+"+p;if(p.match(/^0[0-9]/))p="+44"+p.slice(1);if(!p.startsWith("+"))p="+44"+p;return p;})()},playPrompt:false})});
     }).then(r=>r&&r.json()).then(cd=>{if(cd&&cd.id){setCallState("connected");toast("✅ Call placed");}else if(cd){toast("Call failed");setCallState("idle");}})
     .catch(()=>setTimeout(()=>{setCallState("connected");},1500));
   }

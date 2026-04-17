@@ -1498,7 +1498,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
         h("div",null,h("h2",null,"AI Activity Logger 🤖"),h("p",null,"Talk naturally. I log it, match the script, open the lead card. I'll ask if I'm not sure who you mean.")),
         h("div",{style:{display:"flex",gap:8,alignItems:"center"}},h("span",{style:{fontSize:11,color:"var(--tx2)"}},tc+" today"),h("button",{className:"btn btn-s btn-sm",onClick:()=>{setMsgs([{role:"ai",text:"Cleared. What just happened? 🎯"}]);upd(p=>({...p,chatHistory:[]}));}},"Clear"))
       ),
-      h("div",{className:"chips"},CHIPS.map(c=>h("button",{key:c.l,className:"chip",onClick:()=>send(c.t)},c.l)))
+      null
     ),
     h("div",{className:"msgs",ref},msgs.map((m,i)=>h("div",{key:i,className:"msg "+(m.role==="user"?"u":"a")},
       h("div",{className:"av "+(m.role==="user"?"u":"ai")},m.role==="user"?"👤":"🤖"),

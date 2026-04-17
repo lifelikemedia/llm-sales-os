@@ -2094,6 +2094,10 @@ function ImportModal({db,upd,toast,onClose}){
         if(m.company) m.company=m.company.replace(/-/g," ").replace(/\w/g,c=>c.toUpperCase()).trim();
         // Normalise phone to local UK format for RingCentral
         if(m.phone) m.phone=normalisePhone(m.phone);
+        // Clean name — proper title case (fixes ALL CAPS and all lowercase)
+        if(m.name) m.name=m.name.toLowerCase().split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
+        // Clean company — remove hyphens, title case
+        if(m.company) m.company=m.company.replace(/-/g," ").split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
         // Default source
         if(!m.source) m.source="Scraped list";
         // Auto-score segment
@@ -2111,32 +2115,38 @@ function ImportModal({db,upd,toast,onClose}){
 
   function loadSample(t){const s=SAMPLE_CSV[t];const text=[s.h.join(","),...s.r.map(r=>r.join(","))].join("\n");runCSV(text,t+"_export.csv");}
 
-  function doImport(){
+  async function doImport(){
     const nl=proc.filter(r=>!r._dup&&(r.name||r.company));
     const a=nl.filter(r=>r.seg==="A").length,b=nl.filter(r=>r.seg==="B").length,c=nl.filter(r=>r.seg==="C").length;
-    upd(p=>({...p,leads:[...p.leads,...nl.map(r=>({
-              id:Date.now()+Math.random(),
-              name:r.name||"",
-              company:r.company||"",
-              role:r.role||"",
-              phone:r.phone||"",
-              email:r.email||"",
-              linkedin:r.linkedin||"",
-              address:r.address||r.location||"",
-              postcode:r.postcode||"",
-              website:r.website||"",
-              instagram:"",facebook:"",twitter:"",
-              industry:r.industry||"",
-              revenue:r.revenue||"",
-              employees:r.employees||"",
-              seg:r.seg,
-              source:r.source||"Scraped list",
-              owner:"",
-              stage:"Prospecting",
-              createdAt:TODAY(),
-              notes:""
-            }))]}));
-    setSum({total:nl.length,a,b,c});setPhase("done");toast("🎉 "+nl.length+" leads imported into Prospecting!");
+    // Save directly to Supabase in batches
+    const rows=nl.map(r=>({
+      name:r.name||"",company:r.company||"",role:r.role||"",
+      phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",
+      address:r.address||r.location||"",postcode:r.postcode||"",
+      website:r.website||"",instagram:"",facebook:"",twitter:"",
+      industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",
+      seg:r.seg,source:r.source||"Scraped list",owner:"",
+      stage:"Prospecting",notes:""
+    }));
+    // Insert in batches of 50
+    let inserted=[];
+    for(let i=0;i<rows.length;i+=50){
+      const batch=rows.slice(i,i+50);
+      const {data,error}=await supa.from("leads").insert(batch).select();
+      if(error){toast("Import error: "+error.message);console.error(error);return;}
+      if(data) inserted=[...inserted,...data];
+    }
+    // Update local state with Supabase-assigned UUIDs
+    upd(p=>({...p,leads:[...p.leads,...inserted.map(r=>({
+      id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",
+      phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",
+      address:r.address||"",postcode:r.postcode||"",website:r.website||"",
+      instagram:"",facebook:"",twitter:"",industry:r.industry||"",
+      revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"C",
+      source:r.source||"Scraped list",owner:"",stage:"Prospecting",
+      createdAt:r.created_at?.split("T")[0]||TODAY(),notes:""
+    }))]}));
+    setSum({total:nl.length,a,b,c});setPhase("done");toast("🎉 "+nl.length+" leads saved to Supabase!");
   }
 
   const nc=proc.filter(r=>!r._dup).length;

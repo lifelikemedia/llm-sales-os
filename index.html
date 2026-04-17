@@ -1089,8 +1089,8 @@ function App(){
 
   // Role-based nav
   const NAV=role==="founder"
-    ?[["daily","📋 Daily"],["chat","💬 AI Logger"],["pipeline","💼 Pipeline"],["callcentral","📞 Call Central"],["report","📊 Report"]]
-    :[["daily","📋 Daily"],["chat","💬 AI Logger"],["pipeline","💼 Pipeline"],["callcentral","📞 Call Central"]];
+    ?[["daily","📋 Daily"],["chat","💬 AI Logger"],["pipeline","💼 Pipeline"],["report","📊 Report"]]
+    :[["daily","📋 Daily"],["chat","💬 AI Logger"],["pipeline","💼 Pipeline"]];
 
   // Loading state
   if(session===undefined) return h("div",{className:"login-wrap"},h("div",{style:{color:"var(--tx3)",fontSize:13}},"Loading..."));
@@ -1115,7 +1115,7 @@ function App(){
     view==="chat"
       ?h("div",{className:"chat-outer"},h(AILogger,{db,upd,toast:shT,onLeadOpen:setOpenLead}))
       :h("div",{className:"content"},
-        view==="daily"&&h(Daily,{db,go:setView,onOpen:setOpenLead,keys}),
+        view==="daily"&&h(Daily,{db,go:setView,onOpen:setOpenLead,keys,role}),
         view==="pipeline"&&h(Pipeline,{db,upd,toast:shT,onOpen:setOpenLead,onImport:()=>setShowImport(true),role}),
         view==="callcentral"&&h(CallCentral,{db,upd,keys,toast:shT,onOpen:setOpenLead}),
         view==="report"&&h(Report,{db})
@@ -1128,24 +1128,78 @@ function App(){
 }
 
 // ── DAILY DASHBOARD ──
-function Daily({db,go,onOpen,keys}){
+function Daily({db,go,onOpen,keys,role}){
   const [perfOpen,setPerfOpen]=useState(false);
+  const [callDrawer,setCallDrawer]=useState(null); // {lead, status, timer, note, outcome}
+  const [callTimer,setCallTimer]=useState(0);
+  const [callInterval,setCallInterval]=useState(null);
+
   const ta=db.activities.filter(a=>a.loggedAt===TODAY());
+  const cnt=ta.length;
   const bk=ta.filter(a=>a.outcome==="Booked meeting").length;
   const won=db.leads.filter(l=>l.stage==="Won");
   const rev=won.reduce((s,l)=>s+(l.dealAmount||6900),0);
   const comm=rev*COMM_RATE;
-  const cnt=ta.length,pct=Math.min(100,Math.round(cnt/TARGET_ACTIONS*100));
-  const active=db.leads.filter(l=>!["Won","Lost"].includes(l.stage)).sort((a,b)=>a.seg<b.seg?-1:1);
-  return h("div",null,
-    h("div",{className:"fb"},
+  const tgt=keys.targetActions||TARGET_ACTIONS;
+  const pct=Math.min(Math.round(cnt/tgt*100),100);
+
+  // All leads sorted by last touchpoint (most recent first)
+  const leadsWithTouch=db.leads.map(l=>{
+    const acts=db.activities.filter(a=>a.leadId===l.id).sort((a,b)=>new Date(b.loggedAt)-new Date(a.loggedAt));
+    return{...l,lastTouch:acts[0]?.loggedAt||l.createdAt,lastAct:acts[0]};
+  }).sort((a,b)=>new Date(b.lastTouch)-new Date(a.lastTouch));
+
+  // Call drawer functions
+  function startCall(lead){
+    const interval=setInterval(()=>setCallTimer(t=>t+1),1000);
+    setCallInterval(interval);
+    setCallTimer(0);
+    setCallDrawer({lead,status:"calling",outcome:"No answer",note:""});
+    // RingCentral call
+    (async()=>{
+      try{
+        const tokenRes=await fetch("https://platform.ringcentral.com/restapi/oauth/token",{
+          method:"POST",
+          headers:{"Content-Type":"application/x-www-form-urlencoded","Authorization":"Basic "+btoa(keys.rcClientId+":"+keys.rcClientSecret)},
+          body:"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion="+keys.rcJwt
+        });
+        const td=await tokenRes.json();
+        if(!td.access_token){setCallDrawer(p=>({...p,status:"error",error:"Auth failed"}));return;}
+        const callRes=await fetch("https://platform.ringcentral.com/restapi/v1.0/account/~/extension/~/ring-out",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+td.access_token},
+          body:JSON.stringify({from:{phoneNumber:"02844572084"},to:{phoneNumber:normalisePhone(lead.phone)},playPrompt:false})
+        });
+        const cd=await callRes.json();
+        if(cd.id) setCallDrawer(p=>({...p,status:"connected",rcId:cd.id}));
+        else setCallDrawer(p=>({...p,status:"error",error:cd.message||"Call failed"}));
+      }catch(e){setCallDrawer(p=>({...p,status:"error",error:e.message}));}
+    })();
+  }
+
+  function endCall(){
+    if(callInterval){clearInterval(callInterval);setCallInterval(null);}
+    setCallDrawer(p=>({...p,status:"logging"}));
+  }
+
+  function saveCall(){
+    if(!callDrawer)return;
+    const act={id:Date.now(),leadId:callDrawer.lead.id,leadName:callDrawer.lead.name,type:"Call",outcome:callDrawer.outcome,scriptId:null,day:1,note:callDrawer.note,loggedAt:TODAY()};
+    db.activities.push(act);
+    if(callDrawer.outcome==="Booked meeting"){
+      db.leads.find(l=>l.id===callDrawer.lead.id)&&(db.leads.find(l=>l.id===callDrawer.lead.id).stage="Meeting Booked");
+    }
+    setCallDrawer(null);setCallTimer(0);
+  }
+
+  function fmtTime(s){return Math.floor(s/60)+":"+(s%60).toString().padStart(2,"0");}
+
+  return h("div",{className:"daily"},
+    // ── METRICS ──
+    h("div",{className:"dh"},
       h("div",null,
-        h("div",{className:"sh2"},"Good morning 👋"),
-        h("div",{className:"sub"},new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+" · Your day at a glance")
-      ),
-      h("div",{className:"fr"},
-        h("button",{className:"btn btn-s",onClick:()=>go("callcentral")},"📞 Call Central"),
-        h("button",{className:"btn btn-p",onClick:()=>go("chat")},"💬 AI Logger")
+        h("div",{className:"dg"},"Good morning 👋"),
+        h("div",{className:"ds"},new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+" · Your day at a glance")
       )
     ),
     h("div",{className:"mg"},
@@ -1153,7 +1207,7 @@ function Daily({db,go,onOpen,keys}){
         h("div",{className:"ml"},"📞 Actions Today"),
         h("div",{className:"mv"},cnt),
         h("div",{style:{marginTop:5}},
-          h("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--tx2)",marginBottom:4}},h("span",null,"Target: "+(keys.targetActions||TARGET_ACTIONS)),h("span",null,pct+"%")),
+          h("div",{style:{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--tx2)",marginBottom:4}},h("span",null,"Target: "+tgt),h("span",null,pct+"%")),
           h("div",{className:"pb"},h("div",{className:"pf",style:{width:pct+"%"}}))
         )
       ),
@@ -1166,54 +1220,117 @@ function Daily({db,go,onOpen,keys}){
         perfOpen&&h(PerfPanel,{db,keys,onClose:()=>setPerfOpen(false)})
       )
     ),
+
+    // ── TODAY'S ACTIVITY ──
     h("div",{className:"card"},
-      h("div",{className:"ct"},"⚡ Today's Activity Feed",h("span",{style:{fontSize:11,color:"var(--tx3)",fontWeight:400,marginLeft:"auto"}},cnt+" logged")),
+      h("div",{className:"card-title"},"⚡ Today's Activity Feed",h("span",{style:{fontSize:11,color:"var(--tx3)",fontWeight:400,marginLeft:6}},cnt+" logged")),
       ta.length===0
-        ?h("div",{style:{textAlign:"center",padding:20,color:"var(--tx3)",fontSize:12}},"No activities yet — head to 💬 AI Logger or 📞 Call Central!")
-        :ta.slice().reverse().map(a=>{
-          const sc=db.scripts.find(s=>s.id===a.scriptId);
-          const lead=db.leads.find(l=>l.name===a.leadName);
-          return h("div",{key:a.id,style:{display:"flex",alignItems:"center",gap:9,padding:"8px 0",borderBottom:"1px solid var(--bd)",cursor:"pointer"},onClick:()=>{if(lead)onOpen(lead.id);}},
-            h("span",{style:{fontSize:15}},AIC[a.type]||"📌"),
-            h("div",{style:{flex:1}},
-              h("span",{style:{fontWeight:600,fontSize:12,color:"var(--bl)",textDecoration:"underline"}},a.leadName),
-              h("span",{style:{color:"var(--tx3)",fontSize:11,marginLeft:5}},"Day "+a.day),
-              sc&&h("span",{style:{fontSize:10,color:"var(--pu)",marginLeft:5,background:"var(--pul)",padding:"1px 6px",borderRadius:10}},sc.name.split("—")[0].trim()),
-              a.note&&h("div",{style:{fontSize:11,color:"var(--tx2)",marginTop:1}},a.note)
+        ?h("div",{style:{textAlign:"center",padding:"18px 0",color:"var(--tx3)",fontSize:12}},"No activities yet — head to 💬 AI Logger or hit 📞 Call on any lead!")
+        :h("div",null,ta.slice().reverse().map(a=>{
+          const lead=db.leads.find(l=>l.id===a.leadId);
+          return h("div",{key:a.id,className:"af-item",onClick:()=>lead&&onOpen(lead.id)},
+            h("div",{className:"af-dot af-"+APL[a.type]},a.type[0]),
+            h("div",{className:"af-body"},
+              h("div",{className:"af-top"},
+                h("span",{className:"af-name"},a.leadName||"Unknown"),
+                h("span",{style:{fontSize:10,color:"var(--tx3)"}},a.type)
+              ),
+              h("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:2}},
+                h("span",{className:"pill p-"+(APL[a.type]||"call"),style:{fontSize:9}},a.outcome),
+                a.note&&h("span",{style:{fontSize:10,color:"var(--tx2)"}},a.note)
+              )
             ),
-            h("span",{className:"pill p-"+(APL[a.type]||"call")},a.type)
+            lead&&h("button",{className:"btn btn-s btn-sm",style:{marginLeft:"auto",flexShrink:0}},lead.stage)
           );
-        })
+        }))
     ),
+
+    // ── LEAD LIST — CHRONOLOGICAL ──
     h("div",{className:"card"},
-      h("div",{className:"ct"},"🎯 Active Leads"),
-      active.length===0
-        ?h("div",{style:{textAlign:"center",padding:18,color:"var(--tx3)",fontSize:12}},"No active leads — go to Pipeline to add some")
-        :h("table",{style:{width:"100%",borderCollapse:"collapse"}},
-          h("thead",null,h("tr",null,["Name","Company","Seg","Stage","Touches",""].map(c=>h("th",{key:c,style:{fontSize:10,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".7px",padding:"7px 10px",textAlign:"left",borderBottom:"1px solid var(--bd)",fontWeight:700,background:"var(--bg2)"}},c)))),
-          h("tbody",null,active.map(l=>h("tr",{key:l.id,style:{cursor:"pointer"},onClick:()=>onOpen(l.id)},
-            h("td",{style:{padding:"8px 10px",fontWeight:600,fontSize:12,color:"var(--bl)",textDecoration:"underline"}},l.name),
-            h("td",{style:{padding:"8px 10px",color:"var(--tx2)",fontSize:12}},l.company),
-            h("td",{style:{padding:"8px 10px"}},h("span",{className:"seg-"+l.seg.toLowerCase()},l.seg)),
-            h("td",{style:{padding:"8px 10px"}},h("span",{className:"pill "+(STAGE_COLORS[l.stage]||"p-prospect")},l.stage)),
-            h("td",{style:{padding:"8px 10px",color:"var(--tx3)",fontSize:11}},db.activities.filter(a=>a.leadId===l.id).length+" touches"),
-            h("td",{style:{padding:"8px 10px"}},h("button",{className:"btn btn-ok btn-sm",onClick:e=>{e.stopPropagation();onOpen(l.id);}},"Open"))
-          )))
+      h("div",{className:"card-title"},"📋 All Leads",h("span",{style:{fontSize:11,color:"var(--tx3)",fontWeight:400,marginLeft:6}},"sorted by last touchpoint")),
+      h("div",{style:{overflowX:"auto"}},
+        h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+          h("thead",null,
+            h("tr",{style:{borderBottom:"2px solid var(--bd)"}},
+              ["SEG","NAME","COMPANY","ROLE","PHONE","STAGE","LAST TOUCH","NEXT ACTION"].map(col=>
+                h("th",{key:col,style:{textAlign:"left",padding:"6px 10px",fontSize:10,fontWeight:700,color:"var(--tx3)",whiteSpace:"nowrap"}},col)
+              )
+            )
+          ),
+          h("tbody",null,leadsWithTouch.map(l=>{
+            const nextDay=CDAYS.find(d=>!db.activities.some(a=>a.leadId===l.id&&Number(a.day)===d)&&!((db.manualDays||{})[l.id+"_"+d]));
+            return h("tr",{key:l.id,style:{borderBottom:"1px solid var(--bd)",cursor:"pointer"},
+              onClick:()=>onOpen(l.id),
+              onMouseEnter:e=>e.currentTarget.style.background="var(--bg2)",
+              onMouseLeave:e=>e.currentTarget.style.background=""},
+              h("td",{style:{padding:"8px 10px"}},h("span",{className:"seg-"+l.seg.toLowerCase(),style:{fontWeight:700}},l.seg)),
+              h("td",{style:{padding:"8px 10px",fontWeight:600,color:"var(--tx)"}},l.name||h("span",{style:{color:"var(--tx3)",fontStyle:"italic"}},"No name")),
+              h("td",{style:{padding:"8px 10px",color:"var(--tx2)"}},l.company||"—"),
+              h("td",{style:{padding:"8px 10px",color:"var(--tx2)"}},l.role||"—"),
+              h("td",{style:{padding:"8px 10px"}},
+                l.phone&&h("button",{
+                  className:"btn btn-ok btn-sm",
+                  style:{fontSize:10,padding:"2px 8px"},
+                  onClick:e=>{e.stopPropagation();startCall(l);}
+                },"📞 Call")
+              ),
+              h("td",{style:{padding:"8px 10px"}},h("span",{className:"pill "+(STAGE_COLORS[l.stage]||"p-prospect"),style:{fontSize:9}},l.stage)),
+              h("td",{style:{padding:"8px 10px",color:"var(--tx3)",fontSize:11}},
+                l.lastAct
+                  ?h("div",null,h("div",null,l.lastTouch),h("div",{style:{fontSize:10,color:"var(--tx3)"}},l.lastAct.type+" — "+l.lastAct.outcome))
+                  :h("span",{style:{color:"var(--tx3)",fontStyle:"italic"}},"Not contacted")
+              ),
+              h("td",{style:{padding:"8px 10px",fontSize:10,color:"var(--acd)",fontWeight:600}},
+                nextDay?CADENCE_ACTIONS[nextDay]:"✅ Cadence complete"
+              )
+            );
+          }))
         )
+      )
+    ),
+
+    // ── CALL DRAWER ──
+    callDrawer&&h("div",{style:{position:"fixed",bottom:0,left:0,right:0,background:"var(--bg)",borderTop:"2px solid var(--bd)",boxShadow:"0 -4px 20px rgba(0,0,0,.12)",zIndex:300,padding:"14px 20px"}},
+      h("div",{style:{maxWidth:600,margin:"0 auto"}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:10}},
+          h("div",{style:{width:36,height:36,borderRadius:"50%",background:callDrawer.status==="error"?"var(--rdl)":callDrawer.status==="connected"?"var(--acl)":"var(--aml)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}},
+            callDrawer.status==="error"?"❌":callDrawer.status==="connected"?"📞":"⏳"
+          ),
+          h("div",{style:{flex:1}},
+            h("div",{style:{fontWeight:700,color:"var(--tx)",fontSize:14}},callDrawer.lead.name||callDrawer.lead.company),
+            h("div",{style:{fontSize:11,color:"var(--tx2)"}},
+              callDrawer.status==="calling"?"🔔 Ringing...":
+              callDrawer.status==="connected"?"🟢 Connected · "+fmtTime(callTimer):
+              callDrawer.status==="logging"?"📝 Log this call":
+              "❌ "+callDrawer.error
+            )
+          ),
+          callDrawer.status==="connected"&&h("div",{style:{fontFamily:"monospace",fontSize:18,fontWeight:700,color:"var(--ac)"}},fmtTime(callTimer)),
+          callDrawer.status!=="logging"&&h("button",{
+            className:"btn btn-sm",
+            style:{background:"var(--rdl)",color:"var(--rd)",border:"1px solid #fca5a5",fontWeight:700},
+            onClick:endCall
+          },"End Call"),
+          h("button",{className:"btn btn-s btn-sm",onClick:()=>{if(callInterval)clearInterval(callInterval);setCallDrawer(null);setCallTimer(0);}},"✕")
+        ),
+        callDrawer.status==="logging"&&h("div",{style:{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}},
+          h("div",{style:{flex:1,minWidth:140}},
+            h("div",{style:{fontSize:10,fontWeight:700,color:"var(--tx3)",marginBottom:3}},"OUTCOME"),
+            h("select",{className:"ql-s",value:callDrawer.outcome,onChange:e=>setCallDrawer(p=>({...p,outcome:e.target.value}))},
+              ["No answer","Left voicemail","Spoke — follow-up","Spoke — not interested","Booked meeting"].map(o=>h("option",{key:o},o))
+            )
+          ),
+          h("div",{style:{flex:2,minWidth:200}},
+            h("div",{style:{fontSize:10,fontWeight:700,color:"var(--tx3)",marginBottom:3}},"NOTE"),
+            h("input",{className:"ql-i",value:callDrawer.note,onChange:e=>setCallDrawer(p=>({...p,note:e.target.value})),placeholder:"Quick note..."})
+          ),
+          h("button",{className:"btn btn-p btn-sm",onClick:saveCall},"Save & Log ✓")
+        )
+      )
     )
   );
 }
-</script>
 
-<script>
-const CHIPS=[
-  {l:"📞 Called, no answer",t:"Used cold call opener A on Michael Quinn, no answer. Day 1."},
-  {l:"📧 Day 1 email",t:"Sent day 1 cold email to Declan Farrell."},
-  {l:"💼 LinkedIn DM",t:"Sent LinkedIn connection note to Paul McVey."},
-  {l:"🤝 Booked meeting",t:"Booked on-site with Sarah Brennan for Thursday 2pm."},
-  {l:"🚪 Door knocked",t:"Door knocked at Quinn Electrical, receptionist took my card."},
-  {l:"💰 Deal won!",t:"Brennan Recruitment just signed, £6,900 PIF. Deal won!"},
-];
 
 function AILogger({db,upd,toast,onLeadOpen}){
   const [pending,setPending]=useState(null);
@@ -1869,18 +1986,32 @@ function ImportModal({db,upd,toast,onClose}){
       const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
       const result=rows.map(row=>{
         const m={};
-        Object.entries(map).forEach(([col,field])=>{if(!field||!row[col])return;if(field==="first_name")m._f=row[col];else if(field==="last_name")m._l=row[col];else if(field==="postcode"){m.postcode=row[col];if(!m.location)m.location=row[col];}else m[field]=row[col];});
+        // Map each column to its field
+        Object.entries(map).forEach(([col,field])=>{
+          const val=(row[col]||"").trim();
+          if(!field||!val) return;
+          if(field==="first_name") m._f=val;
+          else if(field==="last_name") m._l=val;
+          else if(field==="postcode"){m.postcode=val;if(!m.location)m.location=val;}
+          else m[field]=val;
+        });
+        // Handle split first/last name
         if(m._f||m._l){m.name=[m._f,m._l].filter(Boolean).join(" ");delete m._f;delete m._l;}
-        // Normalise phone number on import
-        if(m.phone) m.phone=normalisePhone(m.phone);
-        // Clean company name — title case, remove hyphens
+        // Clean name — trim extra spaces
+        if(m.name) m.name=m.name.trim();
+        // Clean company — remove hyphens, title case
         if(m.company) m.company=m.company.replace(/-/g," ").replace(/\w/g,c=>c.toUpperCase()).trim();
-        if(!m.source)m.source="Scraped list";
+        // Normalise phone to local UK format for RingCentral
+        if(m.phone) m.phone=normalisePhone(m.phone);
+        // Default source
+        if(!m.source) m.source="Scraped list";
+        // Auto-score segment
         m.seg=scoreSeg(m);
+        // Deduplicate
         const k=(m.name||"").toLowerCase()+"|"+(m.company||"").toLowerCase();
         const hasData=!!(m.name||m.company);
         m._dup=hasData&&(seen.has(k)||ek.has(k));
-        if(hasData&&k!=="|")seen.add(k);
+        if(hasData&&k!=="|") seen.add(k);
         return m;
       });
       setProc(result);setPhase("preview");
@@ -1892,7 +2023,8 @@ function ImportModal({db,upd,toast,onClose}){
   function doImport(){
     const nl=proc.filter(r=>!r._dup&&(r.name||r.company));
     const a=nl.filter(r=>r.seg==="A").length,b=nl.filter(r=>r.seg==="B").length,c=nl.filter(r=>r.seg==="C").length;
-    upd(p=>({...p,leads:[...p.leads,...nl.map(r=>({id:Date.now()+Math.random(),
+    upd(p=>({...p,leads:[...p.leads,...nl.map(r=>({
+              id:Date.now()+Math.random(),
               name:r.name||"",
               company:r.company||"",
               role:r.role||"",

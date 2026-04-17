@@ -1117,7 +1117,6 @@ function App(){
       :h("div",{className:"content"},
         view==="daily"&&h(Daily,{db,upd,go:setView,onOpen:setOpenLead,keys,role}),
         view==="pipeline"&&h(Pipeline,{db,upd,toast:shT,onOpen:setOpenLead,onImport:()=>setShowImport(true),role}),
-        view==="callcentral"&&h(CallCentral,{db,upd,keys,toast:shT,onOpen:setOpenLead}),
         view==="report"&&h(Report,{db})
       ),
     currentLead&&h(LeadPanel,{leadId:openLead,db,upd,onClose:()=>setOpenLead(null),toast:shT,goChat:()=>setView("chat"),role,keys}),

@@ -1115,7 +1115,7 @@ function App(){
     view==="chat"
       ?h("div",{className:"chat-outer"},h(AILogger,{db,upd,toast:shT,onLeadOpen:setOpenLead}))
       :h("div",{className:"content"},
-        view==="daily"&&h(Daily,{db,go:setView,onOpen:setOpenLead,keys,role}),
+        view==="daily"&&h(Daily,{db,upd,go:setView,onOpen:setOpenLead,keys,role}),
         view==="pipeline"&&h(Pipeline,{db,upd,toast:shT,onOpen:setOpenLead,onImport:()=>setShowImport(true),role}),
         view==="callcentral"&&h(CallCentral,{db,upd,keys,toast:shT,onOpen:setOpenLead}),
         view==="report"&&h(Report,{db})
@@ -1128,7 +1128,7 @@ function App(){
 }
 
 // ── DAILY DASHBOARD ──
-function Daily({db,go,onOpen,keys,role}){
+function Daily({db,upd,go,onOpen,keys,role}){
   const [perfOpen,setPerfOpen]=useState(false);
   const [callDrawer,setCallDrawer]=useState(null); // {lead, status, timer, note, outcome}
   const [callTimer,setCallTimer]=useState(0);
@@ -1185,10 +1185,15 @@ function Daily({db,go,onOpen,keys,role}){
   function saveCall(){
     if(!callDrawer)return;
     const act={id:Date.now(),leadId:callDrawer.lead.id,leadName:callDrawer.lead.name,type:"Call",outcome:callDrawer.outcome,scriptId:null,day:1,note:callDrawer.note,loggedAt:TODAY()};
-    db.activities.push(act);
-    if(callDrawer.outcome==="Booked meeting"){
-      db.leads.find(l=>l.id===callDrawer.lead.id)&&(db.leads.find(l=>l.id===callDrawer.lead.id).stage="Meeting Booked");
-    }
+    upd(p=>{
+      const n={...p,activities:[...p.activities,act]};
+      if(callDrawer.outcome==="Booked meeting"){
+        n.leads=n.leads.map(l=>l.id===callDrawer.lead.id?{...l,stage:"Meeting Booked"}:l);
+      } else if(callDrawer.outcome==="Spoke — follow-up"&&callDrawer.lead.stage==="Prospecting"){
+        n.leads=n.leads.map(l=>l.id===callDrawer.lead.id?{...l,stage:"Contacted"}:l);
+      }
+      return n;
+    });
     setCallDrawer(null);setCallTimer(0);
   }
 

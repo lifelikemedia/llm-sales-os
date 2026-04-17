@@ -1127,6 +1127,78 @@ function App(){
 }
 
 // ── DAILY DASHBOARD ──
+// ── PERFORMANCE PANEL ──
+function PerfPanel({db,keys,onClose}){
+  const [view,setView]=useState("daily");
+  const [month,setMonth]=useState(()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");});
+  const tActions=keys.targetActions||TARGET_ACTIONS;
+  const tMeetings=keys.targetMeetings||TARGET_MEETINGS;
+  const tDeals=keys.targetDeals||4;
+  const tRevenue=keys.targetRevenue||27600;
+  function getActs(){
+    if(view==="daily") return db.activities.filter(a=>a.loggedAt===TODAY());
+    if(view==="weekly"){const ago=new Date();ago.setDate(ago.getDate()-7);return db.activities.filter(a=>new Date(a.loggedAt)>=ago);}
+    return db.activities.filter(a=>a.loggedAt&&a.loggedAt.startsWith(month));
+  }
+  function getWon(){
+    if(view==="daily") return db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)===TODAY()).length;
+    if(view==="weekly"){const ago=new Date();ago.setDate(ago.getDate()-7);return db.leads.filter(l=>l.stage==="Won"&&new Date(l.wonAt||l.createdAt)>=ago).length;}
+    return db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)&&(l.wonAt||l.createdAt).startsWith(month)).length;
+  }
+  const acts=getActs();
+  const wonCount=getWon();
+  const meetings=acts.filter(a=>a.outcome==="Booked meeting").length;
+  const rev=view==="monthly"
+    ?db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)&&(l.wonAt||l.createdAt).startsWith(month)).reduce((s,l)=>s+(l.dealAmount||6900),0)
+    :view==="weekly"
+      ?db.leads.filter(l=>{const ago=new Date();ago.setDate(ago.getDate()-7);return l.stage==="Won"&&new Date(l.wonAt||l.createdAt)>=ago;}).reduce((s,l)=>s+(l.dealAmount||6900),0)
+      :db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)===TODAY()).reduce((s,l)=>s+(l.dealAmount||6900),0);
+  const comm=rev*COMM_RATE;
+  const daysInMonth=new Date(parseInt((month||"2026-04").split("-")[0]),parseInt((month||"2026-04").split("-")[1]),0).getDate();
+  const actTarget=view==="daily"?tActions:view==="weekly"?tActions*7:tActions*daysInMonth;
+  const meetTarget=view==="daily"?Math.ceil(tMeetings/5):view==="weekly"?tMeetings:Math.round(tMeetings*4.3);
+  const dealTarget=view==="daily"?Math.ceil(tDeals/30):view==="weekly"?Math.ceil(tDeals/4):tDeals;
+  const revTarget=view==="daily"?Math.round(tRevenue/30):view==="weekly"?Math.round(tRevenue/4):tRevenue;
+  function barCls(a,t){const p=t>0?a/t:0;return p>=1?"over":p>=0.7?"on-track":"under";}
+  function PRow({label,actual,target,fmt}){
+    const pct=target>0?Math.min(actual/target,1.5):0;
+    const cls=barCls(actual,target);
+    const col=cls==="over"?"var(--ac)":cls==="on-track"?"var(--pu)":"var(--rd)";
+    return h("div",{className:"perf-row"},
+      h("div",{className:"perf-label"},
+        h("span",{className:"perf-lname"},label),
+        h("span",{className:"perf-lval",style:{color:col}},(fmt?FMT(actual):actual),h("span",{style:{color:"var(--tx3)",fontWeight:400,marginLeft:4}},"/ "+(fmt?FMT(target):target)))
+      ),
+      h("div",{className:"perf-bar"},h("div",{className:"perf-fill "+cls,style:{width:Math.min(pct*100,100)+"%"}}))
+    );
+  }
+  return h("div",{className:"perf-panel",onClick:e=>e.stopPropagation()},
+    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
+      h("div",{style:{fontSize:12,fontWeight:700,color:"var(--tx)"}},"Performance Tracker"),
+      h("button",{style:{background:"none",border:"none",color:"var(--tx3)",cursor:"pointer",fontSize:15},onClick:onClose},"✕")
+    ),
+    h("div",{className:"perf-tabs"},
+      [["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]].map(([v,l])=>
+        h("button",{key:v,className:"perf-tab"+(view===v?" on":""),onClick:()=>setView(v)},l)
+      )
+    ),
+    view==="monthly"&&h("div",{style:{marginBottom:10}},
+      h("input",{type:"month",value:month,onChange:e=>setMonth(e.target.value),style:{background:"var(--bg2)",border:"1px solid var(--bd2)",borderRadius:8,color:"var(--tx)",padding:"5px 9px",fontSize:11,width:"100%",outline:"none"}})
+    ),
+    h(PRow,{label:"📞 Actions",actual:acts.length,target:actTarget}),
+    h(PRow,{label:"📅 Meetings",actual:meetings,target:meetTarget}),
+    h(PRow,{label:"🏆 Deals Closed",actual:wonCount,target:dealTarget}),
+    h(PRow,{label:"💰 Revenue",actual:rev,target:revTarget,fmt:true}),
+    h(PRow,{label:"💜 Commission",actual:comm,target:revTarget*COMM_RATE,fmt:true}),
+    h("div",{style:{marginTop:10,paddingTop:10,borderTop:"1px solid var(--bd)",display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--tx3)"}},
+      h("span",null,h("span",{style:{color:"var(--rd)",fontWeight:700}},"■")," Under"),
+      h("span",null,h("span",{style:{color:"var(--pu)",fontWeight:700}},"■")," On track"),
+      h("span",null,h("span",{style:{color:"var(--ac)",fontWeight:700}},"■")," Over achieved")
+    )
+  );
+}
+
+
 function Daily({db,upd,go,onOpen,keys,role}){
   const [perfOpen,setPerfOpen]=useState(false);
   const [callDrawer,setCallDrawer]=useState(null); // {lead, status, timer, note, outcome}

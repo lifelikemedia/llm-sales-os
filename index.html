@@ -1886,7 +1886,7 @@ function Report({db}){
 <script>
 // ── SETTINGS MODAL ──
 function SettingsModal({keys,saveKeys,db,upd,toast,onClose,logout}){
-  const [ak,setAk]=useState(()=>localStorage.getItem("sos_api_key")||"");
+  const [ak,setAk]=useState(()=>getApiKey());
   const [f,setF]=useState({...keys});
   const [scriptCh,setScriptCh]=useState("All");
   const [vidScript,setVidScript]=useState(null);

@@ -2059,9 +2059,9 @@ function ImportModal({db,upd,toast,onClose}){
 
   function parseLine(l){const r=[];let c="",q=false;for(let i=0;i<l.length;i++){const ch=l[i];if(ch==='"'){q=!q;}else if(ch===","&&!q){r.push(c.trim());c="";}else c+=ch;}r.push(c.trim());return r;}
 
-  function runCSV(text,fname){
+  async function runCSV(text,fname){
     setFn(fname);setPhase("processing");
-    setTimeout(()=>{
+    setTimeout(async()=>{
       const lines=text.trim().split("\n").filter(Boolean);
       if(lines.length<2){toast("CSV needs at least 2 rows");setPhase("upload");return;}
       const rawHdrs=parseLine(lines[0]);
@@ -2185,7 +2185,7 @@ function ImportModal({db,upd,toast,onClose}){
       ),
 
       phase==="processing"&&h("div",null,
-        h("div",{className:"ai-proc"},h("div",{className:"spinner"}),h("div",null,h("div",{style:{fontWeight:600,fontSize:13}},fn),h("div",{style:{fontSize:12,color:"var(--tx2)",marginTop:2}},"AI reading columns and scoring every lead..."))),
+        h("div",{className:"ai-proc"},h("div",{className:"spinner"}),h("div",null,h("div",{style:{fontWeight:600,fontSize:13}},fn),h("div",{style:{fontSize:12,color:"var(--tx2)",marginTop:2}},"🤖 AI cleaning names, phones and companies — this takes ~20 seconds for large lists..."))),
         h("div",{className:"proc-bar"},h("div",{className:"proc-fill"}))
       ),
 

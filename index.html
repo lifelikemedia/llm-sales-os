@@ -2061,71 +2061,62 @@ function ImportModal({db,upd,toast,onClose}){
 
   async function runCSV(text,fname){
     setFn(fname);setPhase("processing");
-    setTimeout(async()=>{
-      const lines=text.trim().split("\n").filter(Boolean);
-      if(lines.length<2){toast("CSV needs at least 2 rows");setPhase("upload");return;}
-      const rawHdrs=parseLine(lines[0]);
-      const hdrs=rawHdrs.map(h=>h.trim());
-      console.log("CSV headers found:",hdrs);
-      const rows=lines.slice(1).map(l=>{const v=parseLine(l);const o={};hdrs.forEach((h,i)=>o[h]=(v[i]||"").trim());return o;});
-      const map={},used=new Set();
-      // Direct matches for common sheet headers including your format
-      const directMap={"BRAND":"company","brand":"company","Brand":"company","Company Name":"company","INDUSTRY":"industry","Industry":"industry","industry":"industry","Contact":"name","contact":"name","CONTACT":"name","Role":"role","ROLE":"role","Phone Number":"phone","PHONE NUMBER":"phone","phone number":"phone","Phone":"phone","PHONE":"phone","Email":"email","EMAIL":"email","Email Address":"email","Address":"address","ADDRESS":"address","address":"address","Town":"location","TOWN":"location","town":"location","Postcode":"postcode","POSTCODE":"postcode","postcode":"postcode"};
-      const fc=hdrs.find(x=>/first.?name/i.test(x)),lc=hdrs.find(x=>/last.?name/i.test(x));
-      if(fc){map[fc]="first_name";used.add("first_name");}if(lc){map[lc]="last_name";used.add("last_name");}
-      // Pass 1: direct matches only, skip blank headers
-      hdrs.forEach(hh=>{
-        if(!hh||!hh.trim()) return;
-        if(directMap[hh]&&!used.has(directMap[hh])){map[hh]=directMap[hh];used.add(directMap[hh]);}
+
+    // AI-POWERED CSV CLEANING
+    const lines=text.trim().split("\n").filter(Boolean);
+    if(lines.length<2){toast("CSV needs at least 2 rows");setPhase("upload");return;}
+    const sampleLines=lines.slice(0,6).join("\n");
+    const totalRows=lines.length-1;
+
+    const prompt="You are a data cleaning expert for a UK sales agency. I have a CSV of business leads. Here are the headers and first 5 rows:\n\n"+sampleLines+"\n\nClean ALL "+totalRows+" rows from this full CSV:\n\n"+text+"\n\nRules:\n- Names: proper title case. If name is blank, infer from email (patrick.cunningham@co.com=Patrick Cunningham). Generic emails (info@,enquiries@,contact@,hello@,admin@,accounts@) leave name blank.\n- Companies: proper title case, remove hyphens between words, fix run-together words (armstrongaccountants=Armstrong Accountants, rsmuk=RSM UK). Remove leading dots/special chars.\n- Phones: UK local format starting 0 (02830252007, 07911123456). Strip 44/+44/0044 prefix. Remove spaces/brackets/hyphens.\n- Industry: infer from company name if blank (Armstrong Accountants=Accountants, Belfast Dental=Dental).\n- Skip rows with no name AND no company AND no email.\n- Deduplicate on email or phone.\n\nRespond ONLY with a JSON array. No markdown, no code blocks. Start with [ end with ]:\n[{\"name\":\"\",\"company\":\"\",\"role\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"postcode\":\"\",\"industry\":\"\",\"website\":\"\"},...]";
+
+    try{
+      const res=await fetch("/api/chat",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:8000,
+          messages:[{role:"user",content:prompt}]
+        })
       });
-      // Pass 2: fuzzy match remaining
-      hdrs.forEach(hh=>{
-        if(!hh||!hh.trim()) return;
-        if(map[hh]) return;
-        const hl=hh.toLowerCase().trim();
-        let bf="",bs=0;
-        Object.entries(FP).forEach(([f,ps])=>{if(used.has(f))return;ps.forEach(p=>{const sc=hl===p?4:hl.includes(p)||p.includes(hl)?3:lev(hl,p)<=2?2:0;if(sc>bs){bs=sc;bf=f;}});});
-        if(bf&&bs>=2){map[hh]=bf;used.add(bf);}else map[hh]="";
-      });
-      console.log("Column mapping:",map);
-      const seen=new Set();
+      const data=await res.json();
+      const raw=data.content&&data.content[0]&&data.content[0].text?data.content[0].text:"[]";
+
+      let cleaned=[];
+      try{
+        const jsonStr=raw.replace(/```json/g,"").replace(/```/g,"").trim();
+        const jsonStart=jsonStr.indexOf("[");
+        const jsonEnd=jsonStr.lastIndexOf("]")+1;
+        cleaned=JSON.parse(jsonStr.slice(jsonStart,jsonEnd));
+      }catch(e){
+        console.error("AI parse error:",e,raw.slice(0,500));
+        toast("AI parse failed — check console");
+        setPhase("upload");return;
+      }
+
+      if(!cleaned.length){toast("AI returned no rows");setPhase("upload");return;}
+
       const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
-      const result=rows.map(row=>{
-        const m={};
-        // Map each column to its field
-        Object.entries(map).forEach(([col,field])=>{
-          const val=(row[col]||"").trim();
-          if(!field||!val) return;
-          if(field==="first_name") m._f=val;
-          else if(field==="last_name") m._l=val;
-          else if(field==="postcode"){m.postcode=val;if(!m.location)m.location=val;}
-          else m[field]=val;
-        });
-        // Handle split first/last name
-        if(m._f||m._l){m.name=[m._f,m._l].filter(Boolean).join(" ");delete m._f;delete m._l;}
-        // Clean name — trim extra spaces
-        if(m.name) m.name=m.name.trim();
-        // Clean company — remove hyphens, title case
-        if(m.company) m.company=m.company.replace(/-/g," ").replace(/\w/g,c=>c.toUpperCase()).trim();
-        // Normalise phone to local UK format for RingCentral
-        if(m.phone) m.phone=normalisePhone(m.phone);
-        // Clean name — proper title case (fixes ALL CAPS and all lowercase)
-        if(m.name) m.name=m.name.toLowerCase().split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
-        // Clean company — remove hyphens, title case
-        if(m.company) m.company=m.company.replace(/-/g," ").split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
-        // Default source
-        if(!m.source) m.source="Scraped list";
-        // Auto-score segment
-        m.seg=scoreSeg(m);
-        // Deduplicate
-        const k=(m.name||"").toLowerCase()+"|"+(m.company||"").toLowerCase();
-        const hasData=!!(m.name||m.company);
-        m._dup=hasData&&(seen.has(k)||ek.has(k));
+      const seen=new Set();
+      const result=cleaned.map(r=>{
+        if(r.phone) r.phone=normalisePhone(String(r.phone));
+        if(!r.source) r.source="Scraped list";
+        r.seg=scoreSeg(r);
+        const k=(r.name||"").toLowerCase()+"|"+(r.company||"").toLowerCase();
+        const hasData=!!(r.name||r.company||r.email);
+        r._dup=hasData&&(seen.has(k)||ek.has(k));
         if(hasData&&k!=="|") seen.add(k);
-        return m;
-      });
+        return r;
+      }).filter(r=>r.name||r.company||r.email);
+
       setProc(result);setPhase("preview");
-    },700);
+
+    }catch(e){
+      console.error("AI import error:",e);
+      toast("Error: "+e.message);
+      setPhase("upload");
+    }
   }
 
   function loadSample(t){const s=SAMPLE_CSV[t];const text=[s.h.join(","),...s.r.map(r=>r.join(","))].join("\n");runCSV(text,t+"_export.csv");}

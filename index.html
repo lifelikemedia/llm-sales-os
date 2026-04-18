@@ -1531,6 +1531,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
 
 <script>
 function Pipeline({db,upd,toast,onOpen,onImport,role}){
+  const [search,setSearch]=useState("");
   const [addCol,setAddCol]=useState(null); // which stage to add lead to
   const [addForm,setAddForm]=useState({name:"",company:"",phone:"",role:"",seg:"A"});
   const dragId=useRef(null);
@@ -1564,14 +1565,28 @@ function Pipeline({db,upd,toast,onOpen,onImport,role}){
         h("div",{className:"sh2"},"Pipeline 💼"),
         h("div",{className:"sub"},totalPipeline+" active leads · "+wonCount+" won · ",h("span",{style:{color:"var(--pu)",fontWeight:600}},FMT(commEarned)+" commission earned"))
       ),
-      h("div",{className:"fr"},
+      h("div",{className:"fr",style:{gap:8,alignItems:"center"}},
+        h("div",{style:{position:"relative"}},
+          h("input",{
+            className:"finp",
+            style:{width:220,paddingLeft:28,fontSize:12},
+            placeholder:"Search leads...",
+            value:search,
+            onChange:e=>setSearch(e.target.value)
+          }),
+          h("span",{style:{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--tx3)"}},"🔍")
+        ),
         h("button",{className:"btn btn-s",onClick:onImport},"📥 Import CSV"),
         h("button",{className:"btn btn-p",onClick:()=>setAddCol("Prospecting")},"+ Add Lead")
       )
     ),
     h("div",{className:"kanban"},
       STAGES.map(stage=>{
-        const leads=db.leads.filter(l=>l.stage===stage);
+        const leads=db.leads.filter(l=>l.stage===stage).filter(l=>{
+      if(!search) return true;
+      const s=search.toLowerCase();
+      return (l.name||"").toLowerCase().includes(s)||(l.company||"").toLowerCase().includes(s)||(l.role||"").toLowerCase().includes(s)||(l.phone||"").includes(s)||(l.email||"").toLowerCase().includes(s)||(l.industry||"").toLowerCase().includes(s);
+    });
         const stageRev=stage==="Won"?leads.length*6900:0;
         return h("div",{key:stage,className:"kcol",onDragOver:onCDO,onDrop:e=>onDrop(e,stage),onDragLeave:e=>e.currentTarget.classList.remove("dov")},
           h("div",{className:"kct"},

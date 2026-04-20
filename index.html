@@ -652,6 +652,24 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
           h("div",{className:"psec-title"},"Contact"),
           h("div",{style:{display:"flex",flexDirection:"column",gap:7}},
 
+            // NAME
+            h("div",{className:"ef"},
+              h("div",{className:"ef-lbl"},"Name"),
+              h("input",{className:"ef-inp",value:lead.name||"",onChange:e=>upL("name",e.target.value),placeholder:"Full name"})
+            ),
+
+            // ROLE + COMPANY
+            h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
+              h("div",{className:"ef"},
+                h("div",{className:"ef-lbl"},"Role"),
+                h("input",{className:"ef-inp",value:lead.role||"",onChange:e=>upL("role",e.target.value),placeholder:"e.g. CEO"})
+              ),
+              h("div",{className:"ef"},
+                h("div",{className:"ef-lbl"},"Company"),
+                h("input",{className:"ef-inp",value:lead.company||"",onChange:e=>upL("company",e.target.value),placeholder:"Company name"})
+              )
+            ),
+
             // EMAIL
             h("div",{className:"ef"},
               h("div",{className:"ef-lbl"},"Email"),

@@ -543,8 +543,35 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
 
   function toggleDay(day){
     const key=lead.id+"_"+day;
-    upd(p=>{const md={...(p.manualDays||{})};md[key]?delete md[key]:md[key]=true;return{...p,manualDays:md};});
-    toast("Cadence updated");
+    const wasActive=!!((db.manualDays||{})[key]);
+    upd(p=>{
+      const md={...(p.manualDays||{})};
+      if(wasActive){
+        // Unmarking — remove the activity too
+        delete md[key];
+        return{
+          ...p,
+          manualDays:md,
+          activities:p.activities.filter(a=>!(a.leadId===lead.id&&Number(a.day)===day&&a.type==="Cadence"))
+        };
+      } else {
+        // Marking — add manualDay flag AND log an activity
+        md[key]=true;
+        const act={
+          id:Date.now(),
+          leadId:lead.id,
+          leadName:lead.name||lead.company,
+          type:"Cadence",
+          outcome:"Day "+day+" — "+(CADENCE_ACTIONS[day]||""),
+          scriptId:null,
+          day:day,
+          note:"Marked Day "+day+" complete",
+          loggedAt:TODAY()
+        };
+        return{...p,manualDays:md,activities:[...p.activities,act]};
+      }
+    });
+    toast(wasActive?"Day "+day+" unmarked":"Day "+day+" logged ✓");
   }
 
   // GEO DISPERSE - find leads within ~2 miles using postcode prefix matching

@@ -2074,9 +2074,10 @@ function ImportModal({db,upd,toast,onClose}){
       const batchText=headerLine+"\n"+batchLines.join("\n");
       const prompt="Clean these business leads CSV rows. Headers and data:\n\n"+batchText+"\n\nRules:\n- Names: proper title case. If name blank, infer from email (patrick.cunningham@co.com=Patrick Cunningham). Skip generic emails (info@,enquiries@,contact@,hello@,admin@,accounts@).\n- Companies: proper title case, fix run-together words (armstrongaccountants=Armstrong Accountants).\n- Phones: UK local format starting 0, strip 44/+44/0044, remove spaces/brackets.\n- Industry: infer from company name if blank.\n\nReturn ONLY a JSON array with these exact fields for each row. No markdown, no explanation:\n[{\"name\":\"\",\"company\":\"\",\"role\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"postcode\":\"\",\"industry\":\"\"}]";
       try{
-        const res=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+        const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+          headers:{"Content-Type":"application/json","x-api-key":getApiKey(),"anthropic-version":"2023-06-01"},
           body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content:prompt}]})});
-        if(!res.ok){console.error("API error:",res.status);return [];}
+        if(!res.ok){console.error("API error:",res.status,await res.text());return [];}
         const data=await res.json();
         if(data.error){console.error("Claude error:",data.error);return [];}
         const raw=data.content&&data.content[0]?data.content[0].text:"";

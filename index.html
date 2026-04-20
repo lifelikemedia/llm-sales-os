@@ -336,23 +336,25 @@ const CDAYS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17];
 const DEAL_AMOUNT = 6900;
 const CADENCE_ACTIONS = {
   1:"📞 Call + VM · 📧 Email #1 · 💼 LinkedIn connect",
-  2:"📞 Call again",
-  3:"📧 Email #2",
-  4:"📞 Call",
-  5:"💬 SMS",
-  6:"💼 LinkedIn DM",
+  2:"📞 Call AM + VM · 📞 Call PM",
+  3:"📞 Call + VM · 💼 LinkedIn message (if accepted)",
+  4:"📧 Email #2",
+  5:"📞 Call · 💼 LinkedIn message",
+  6:"☕ Break",
   7:"📞 Call",
-  8:"📧 Email #3",
-  9:"🚪 Door knock",
-  10:"📞 Call",
-  11:"💼 LinkedIn follow-up",
-  12:"📧 Email #4",
-  13:"📞 Call",
-  14:"💬 SMS",
-  15:"📧 Email #5",
-  16:"📞 Final call",
-  17:"📧 Break-up email"
+  8:"📞 Call · 📧 Email #3",
+  9:"☕ Break",
+  10:"☕ Break",
+  11:"📞 Call · 💼 LinkedIn message",
+  12:"📞 Call",
+  13:"📧 Email #4",
+  14:"📞 Call",
+  15:"📞 Call",
+  16:"☕ Break",
+  17:"📧 Final Email #5 · 💼 LinkedIn message"
 };
+// How many touchpoints each cadence day contains
+const CADENCE_COUNT = {1:3,2:2,3:2,4:1,5:2,6:0,7:1,8:2,9:0,10:0,11:2,12:1,13:1,14:1,15:1,16:0,17:2};
 const COMM_RATE = 0.07;
 const TARGET_ACTIONS = 100;
 const TARGET_MEETINGS = 6;
@@ -544,10 +546,11 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
   function toggleDay(day){
     const key=lead.id+"_"+day;
     const wasActive=!!((db.manualDays||{})[key]);
+    const touchpoints=CADENCE_COUNT[day]||0;
     upd(p=>{
       const md={...(p.manualDays||{})};
       if(wasActive){
-        // Unmarking — remove the activity too
+        // Unmarking — remove all activities tagged with this cadence day
         delete md[key];
         return{
           ...p,
@@ -555,23 +558,32 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
           activities:p.activities.filter(a=>!(a.leadId===lead.id&&Number(a.day)===day&&a.type==="Cadence"))
         };
       } else {
-        // Marking — add manualDay flag AND log an activity
+        // Marking — flag the day AND log N activities (one per touchpoint)
         md[key]=true;
-        const act={
-          id:Date.now(),
-          leadId:lead.id,
-          leadName:lead.name||lead.company,
-          type:"Cadence",
-          outcome:"Day "+day+" — "+(CADENCE_ACTIONS[day]||""),
-          scriptId:null,
-          day:day,
-          note:"Marked Day "+day+" complete",
-          loggedAt:TODAY()
-        };
-        return{...p,manualDays:md,activities:[...p.activities,act]};
+        const newActs=[];
+        if(touchpoints>0){
+          // Parse each touchpoint out of the label
+          const parts=(CADENCE_ACTIONS[day]||"").split(" · ");
+          parts.forEach((part,i)=>{
+            newActs.push({
+              id:Date.now()+i,
+              leadId:lead.id,
+              leadName:lead.name||lead.company,
+              type:"Cadence",
+              outcome:part.trim(),
+              scriptId:null,
+              day:day,
+              note:"Day "+day+" — "+part.trim(),
+              loggedAt:TODAY()
+            });
+          });
+        }
+        return{...p,manualDays:md,activities:[...p.activities,...newActs]};
       }
     });
-    toast(wasActive?"Day "+day+" unmarked":"Day "+day+" logged ✓");
+    if(wasActive){toast("Day "+day+" unmarked");}
+    else if(touchpoints===0){toast("Day "+day+" marked (break day — no actions)");}
+    else{toast("Day "+day+" logged · +"+touchpoints+" action"+(touchpoints>1?"s":"")+" ✓");}
   }
 
   // GEO DISPERSE - find leads within ~2 miles using postcode prefix matching

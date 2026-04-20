@@ -1329,7 +1329,7 @@ function Daily({db,upd,go,onOpen,keys,role}){
       h("div",{className:"card-title"},"⚡ Today's Activity Feed",h("span",{style:{fontSize:11,color:"var(--tx3)",fontWeight:400,marginLeft:6}},cnt+" logged")),
       ta.length===0
         ?h("div",{style:{textAlign:"center",padding:"18px 0",color:"var(--tx3)",fontSize:12}},"No activities yet — head to 💬 AI Logger or hit 📞 Call on any lead!")
-        :h("div",null,ta.slice().reverse().map(a=>{
+        :h("div",null,ta.slice().sort((a,b)=>(b.id||0)-(a.id||0)).map(a=>{
           const lead=db.leads.find(l=>l.id===a.leadId);
           return h("div",{key:a.id,className:"af-item",onClick:()=>lead&&onOpen(lead.id)},
             h("div",{className:"af-dot af-"+APL[a.type]},a.type[0]),

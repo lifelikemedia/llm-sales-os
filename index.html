@@ -2062,44 +2062,49 @@ function ImportModal({db,upd,toast,onClose}){
   async function runCSV(text,fname){
     setFn(fname);setPhase("processing");
 
-    // AI-POWERED CSV CLEANING
+    // AI-POWERED CSV CLEANING — batch processing
     const lines=text.trim().split("\n").filter(Boolean);
     if(lines.length<2){toast("CSV needs at least 2 rows");setPhase("upload");return;}
-    const sampleLines=lines.slice(0,6).join("\n");
-    const totalRows=lines.length-1;
 
-    const prompt="You are a data cleaning expert for a UK sales agency. I have a CSV of business leads. Here are the headers and first 5 rows:\n\n"+sampleLines+"\n\nClean ALL "+totalRows+" rows from this full CSV:\n\n"+text+"\n\nRules:\n- Names: proper title case. If name is blank, infer from email (patrick.cunningham@co.com=Patrick Cunningham). Generic emails (info@,enquiries@,contact@,hello@,admin@,accounts@) leave name blank.\n- Companies: proper title case, remove hyphens between words, fix run-together words (armstrongaccountants=Armstrong Accountants, rsmuk=RSM UK). Remove leading dots/special chars.\n- Phones: UK local format starting 0 (02830252007, 07911123456). Strip 44/+44/0044 prefix. Remove spaces/brackets/hyphens.\n- Industry: infer from company name if blank (Armstrong Accountants=Accountants, Belfast Dental=Dental).\n- Skip rows with no name AND no company AND no email.\n- Deduplicate on email or phone.\n\nRespond ONLY with a JSON array. No markdown, no code blocks. Start with [ end with ]:\n[{\"name\":\"\",\"company\":\"\",\"role\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"postcode\":\"\",\"industry\":\"\",\"website\":\"\"},...]";
+    const headerLine=lines[0];
+    const dataLines=lines.slice(1);
+    const BATCH=50; // rows per API call
+    const sampleLines=lines.slice(0,4).join("\n");
 
-    try{
+    async function cleanBatch(batchLines){
+      const batchText=headerLine+"\n"+batchLines.join("\n");
+      const prompt="You are a data cleaning expert for a UK sales agency. Clean these "+batchLines.length+" business leads from this CSV:\n\n"+batchText+"\n\nRules:\n- Names: proper title case. If name blank, infer from email (patrick.cunningham@co.com=Patrick Cunningham). Generic emails (info@,enquiries@,contact@,hello@,admin@,accounts@,mail@,office@) leave name blank.\n- Companies: proper title case, remove hyphens between words, fix run-together words (armstrongaccountants=Armstrong Accountants, rsmuk=RSM UK). Remove leading dots.\n- Phones: UK local format starting 0. Strip 44/+44/0044. Remove spaces/brackets/hyphens.\n- Industry: infer from company name if blank.\n- Remove rows with nothing useful.\n\nRespond ONLY with JSON array, no markdown:\n[{\"name\":\"\",\"company\":\"\",\"role\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"postcode\":\"\",\"industry\":\"\",\"website\":\"\"}]";
+
       const res=await fetch("/api/chat",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:8000,
-          messages:[{role:"user",content:prompt}]
-        })
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content:prompt}]})
       });
       const data=await res.json();
-      const raw=data.content&&data.content[0]&&data.content[0].text?data.content[0].text:"[]";
-
-      let cleaned=[];
+      const raw=data.content&&data.content[0]?data.content[0].text:"[]";
       try{
-        const jsonStr=raw.replace(/```json/g,"").replace(/```/g,"").trim();
-        const jsonStart=jsonStr.indexOf("[");
-        const jsonEnd=jsonStr.lastIndexOf("]")+1;
-        cleaned=JSON.parse(jsonStr.slice(jsonStart,jsonEnd));
-      }catch(e){
-        console.error("AI parse error:",e,raw.slice(0,500));
-        toast("AI parse failed — check console");
-        setPhase("upload");return;
+        const s=raw.indexOf("[");const e=raw.lastIndexOf("]")+1;
+        return JSON.parse(raw.slice(s,e));
+      }catch(err){console.error("Batch parse error:",err,raw.slice(0,200));return [];}
+    }
+
+    try{
+      let allCleaned=[];
+      const totalBatches=Math.ceil(dataLines.length/BATCH);
+
+      for(let i=0;i<dataLines.length;i+=BATCH){
+        const batch=dataLines.slice(i,i+BATCH);
+        const batchNum=Math.floor(i/BATCH)+1;
+        toast("🤖 AI cleaning batch "+batchNum+" of "+totalBatches+"...");
+        const cleaned=await cleanBatch(batch);
+        allCleaned=[...allCleaned,...cleaned];
       }
 
-      if(!cleaned.length){toast("AI returned no rows");setPhase("upload");return;}
+      if(!allCleaned.length){toast("AI returned no rows — check your CSV format");setPhase("upload");return;}
 
       const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
       const seen=new Set();
-      const result=cleaned.map(r=>{
+      const result=allCleaned.map(r=>{
         if(r.phone) r.phone=normalisePhone(String(r.phone));
         if(!r.source) r.source="Scraped list";
         r.seg=scoreSeg(r);

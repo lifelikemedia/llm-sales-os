@@ -2068,24 +2068,28 @@ function ImportModal({db,upd,toast,onClose}){
 
     const headerLine=lines[0];
     const dataLines=lines.slice(1);
-    const BATCH=50; // rows per API call
-    const sampleLines=lines.slice(0,4).join("\n");
+    const BATCH=40;
 
-    async function cleanBatch(batchLines){
+    async function cleanBatch(batchLines,batchNum,total){
       const batchText=headerLine+"\n"+batchLines.join("\n");
-      const prompt="You are a data cleaning expert for a UK sales agency. Clean these "+batchLines.length+" business leads from this CSV:\n\n"+batchText+"\n\nRules:\n- Names: proper title case. If name blank, infer from email (patrick.cunningham@co.com=Patrick Cunningham). Generic emails (info@,enquiries@,contact@,hello@,admin@,accounts@,mail@,office@) leave name blank.\n- Companies: proper title case, remove hyphens between words, fix run-together words (armstrongaccountants=Armstrong Accountants, rsmuk=RSM UK). Remove leading dots.\n- Phones: UK local format starting 0. Strip 44/+44/0044. Remove spaces/brackets/hyphens.\n- Industry: infer from company name if blank.\n- Remove rows with nothing useful.\n\nRespond ONLY with JSON array, no markdown:\n[{\"name\":\"\",\"company\":\"\",\"role\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"postcode\":\"\",\"industry\":\"\",\"website\":\"\"}]";
-
-      const res=await fetch("/api/chat",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content:prompt}]})
-      });
-      const data=await res.json();
-      const raw=data.content&&data.content[0]?data.content[0].text:"[]";
+      const prompt="Clean these business leads CSV rows. Headers and data:\n\n"+batchText+"\n\nRules:\n- Names: proper title case. If name blank, infer from email (patrick.cunningham@co.com=Patrick Cunningham). Skip generic emails (info@,enquiries@,contact@,hello@,admin@,accounts@).\n- Companies: proper title case, fix run-together words (armstrongaccountants=Armstrong Accountants).\n- Phones: UK local format starting 0, strip 44/+44/0044, remove spaces/brackets.\n- Industry: infer from company name if blank.\n\nReturn ONLY a JSON array with these exact fields for each row. No markdown, no explanation:\n[{\"name\":\"\",\"company\":\"\",\"role\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"postcode\":\"\",\"industry\":\"\"}]";
       try{
-        const s=raw.indexOf("[");const e=raw.lastIndexOf("]")+1;
-        return JSON.parse(raw.slice(s,e));
-      }catch(err){console.error("Batch parse error:",err,raw.slice(0,200));return [];}
+        const res=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content:prompt}]})});
+        if(!res.ok){console.error("API error:",res.status);return [];}
+        const data=await res.json();
+        if(data.error){console.error("Claude error:",data.error);return [];}
+        const raw=data.content&&data.content[0]?data.content[0].text:"";
+        if(!raw){console.error("Empty response batch",batchNum);return [];}
+        const s=raw.indexOf("[");
+        const e=raw.lastIndexOf("]")+1;
+        if(s<0||e<=0){console.error("No JSON array in response:",raw.slice(0,200));return [];}
+        const parsed=JSON.parse(raw.slice(s,e));
+        return Array.isArray(parsed)?parsed:[];
+      }catch(err){
+        console.error("Batch "+batchNum+" error:",err);
+        return [];
+      }
     }
 
     try{
@@ -2093,14 +2097,21 @@ function ImportModal({db,upd,toast,onClose}){
       const totalBatches=Math.ceil(dataLines.length/BATCH);
 
       for(let i=0;i<dataLines.length;i+=BATCH){
-        const batch=dataLines.slice(i,i+BATCH);
         const batchNum=Math.floor(i/BATCH)+1;
+        const batch=dataLines.slice(i,i+BATCH);
         toast("🤖 AI cleaning batch "+batchNum+" of "+totalBatches+"...");
-        const cleaned=await cleanBatch(batch);
+        const cleaned=await cleanBatch(batch,batchNum,totalBatches);
+        console.log("Batch "+batchNum+" returned "+cleaned.length+" rows");
         allCleaned=[...allCleaned,...cleaned];
       }
 
-      if(!allCleaned.length){toast("AI returned no rows — check your CSV format");setPhase("upload");return;}
+      console.log("Total cleaned rows:",allCleaned.length);
+
+      if(!allCleaned.length){
+        toast("AI returned no data — check console for errors");
+        setPhase("upload");
+        return;
+      }
 
       const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
       const seen=new Set();
@@ -2115,11 +2126,14 @@ function ImportModal({db,upd,toast,onClose}){
         return r;
       }).filter(r=>r.name||r.company||r.email);
 
-      setProc(result);setPhase("preview");
+      console.log("After filter:",result.length,"rows");
+      toast("✅ AI cleaned "+result.length+" leads — review before importing");
+      setProc(result);
+      setPhase("preview");
 
     }catch(e){
-      console.error("AI import error:",e);
-      toast("Error: "+e.message);
+      console.error("AI import fatal error:",e);
+      toast("Fatal error: "+e.message);
       setPhase("upload");
     }
   }

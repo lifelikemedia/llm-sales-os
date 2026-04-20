@@ -2061,82 +2061,84 @@ function ImportModal({db,upd,toast,onClose}){
 
   async function runCSV(text,fname){
     setFn(fname);setPhase("processing");
-
-    // AI-POWERED CSV CLEANING — batch processing
-    const lines=text.trim().split("\n").filter(Boolean);
-    if(lines.length<2){toast("CSV needs at least 2 rows");setPhase("upload");return;}
-
-    const headerLine=lines[0];
-    const dataLines=lines.slice(1);
-    const BATCH=40;
-
-    async function cleanBatch(batchLines,batchNum,total){
-      const batchText=headerLine+"\n"+batchLines.join("\n");
-      const prompt="Clean these business leads CSV rows. Headers and data:\n\n"+batchText+"\n\nRules:\n- Names: proper title case. If name blank, infer from email (patrick.cunningham@co.com=Patrick Cunningham). Skip generic emails (info@,enquiries@,contact@,hello@,admin@,accounts@).\n- Companies: proper title case, fix run-together words (armstrongaccountants=Armstrong Accountants).\n- Phones: UK local format starting 0, strip 44/+44/0044, remove spaces/brackets.\n- Industry: infer from company name if blank.\n\nReturn ONLY a JSON array with these exact fields for each row. No markdown, no explanation:\n[{\"name\":\"\",\"company\":\"\",\"role\":\"\",\"phone\":\"\",\"email\":\"\",\"address\":\"\",\"postcode\":\"\",\"industry\":\"\"}]";
-      try{
-        const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-          headers:{"Content-Type":"application/json","x-api-key":getApiKey(),"anthropic-version":"2023-06-01"},
-          body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content:prompt}]})});
-        if(!res.ok){console.error("API error:",res.status,await res.text());return [];}
-        const data=await res.json();
-        if(data.error){console.error("Claude error:",data.error);return [];}
-        const raw=data.content&&data.content[0]?data.content[0].text:"";
-        if(!raw){console.error("Empty response batch",batchNum);return [];}
-        const s=raw.indexOf("[");
-        const e=raw.lastIndexOf("]")+1;
-        if(s<0||e<=0){console.error("No JSON array in response:",raw.slice(0,200));return [];}
-        const parsed=JSON.parse(raw.slice(s,e));
-        return Array.isArray(parsed)?parsed:[];
-      }catch(err){
-        console.error("Batch "+batchNum+" error:",err);
-        return [];
-      }
-    }
-
-    try{
-      let allCleaned=[];
-      const totalBatches=Math.ceil(dataLines.length/BATCH);
-
-      for(let i=0;i<dataLines.length;i+=BATCH){
-        const batchNum=Math.floor(i/BATCH)+1;
-        const batch=dataLines.slice(i,i+BATCH);
-        toast("🤖 AI cleaning batch "+batchNum+" of "+totalBatches+"...");
-        const cleaned=await cleanBatch(batch,batchNum,totalBatches);
-        console.log("Batch "+batchNum+" returned "+cleaned.length+" rows");
-        allCleaned=[...allCleaned,...cleaned];
-      }
-
-      console.log("Total cleaned rows:",allCleaned.length);
-
-      if(!allCleaned.length){
-        toast("AI returned no data — check console for errors");
-        setPhase("upload");
-        return;
-      }
-
-      const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
+    setTimeout(()=>{
+      const lines=text.trim().split("\n").filter(Boolean);
+      if(lines.length<2){toast("CSV needs at least 2 rows");setPhase("upload");return;}
+      const rawHdrs=parseLine(lines[0]);
+      const hdrs=rawHdrs.map(h=>h.trim());
+      const rows=lines.slice(1).map(l=>{const v=parseLine(l);const o={};hdrs.forEach((h,i)=>o[h]=(v[i]||"").trim());return o;});
+      const map={},used=new Set();
+      const directMap={"BRAND":"company","brand":"company","Brand":"company","Company Name":"company","INDUSTRY":"industry","Industry":"industry","industry":"industry","Contact":"name","contact":"name","CONTACT":"name","Role":"role","ROLE":"role","Phone Number":"phone","PHONE NUMBER":"phone","phone number":"phone","Phone":"phone","PHONE":"phone","Email":"email","EMAIL":"email","Email Address":"email","Address":"address","ADDRESS":"address","address":"address","Town":"location","TOWN":"location","town":"location","Postcode":"postcode","POSTCODE":"postcode","postcode":"postcode"};
+      const fc=hdrs.find(x=>/first.?name/i.test(x)),lc=hdrs.find(x=>/last.?name/i.test(x));
+      if(fc){map[fc]="first_name";used.add("first_name");}if(lc){map[lc]="last_name";used.add("last_name");}
+      // Pass 1: direct matches only, skip blank headers
+      hdrs.forEach(hh=>{
+        if(!hh||!hh.trim()) return;
+        if(directMap[hh]&&!used.has(directMap[hh])){map[hh]=directMap[hh];used.add(directMap[hh]);}
+      });
+      // Pass 2: fuzzy match remaining
+      hdrs.forEach(hh=>{
+        if(!hh||!hh.trim()) return;
+        if(map[hh]) return;
+        const hl=hh.toLowerCase().trim();
+        let bf="",bs=0;
+        Object.entries(FP).forEach(([f,ps])=>{if(used.has(f))return;ps.forEach(p=>{const sc=hl===p?4:hl.includes(p)||p.includes(hl)?3:lev(hl,p)<=2?2:0;if(sc>bs){bs=sc;bf=f;}});});
+        if(bf&&bs>=2){map[hh]=bf;used.add(bf);}else map[hh]="";
+      });
       const seen=new Set();
-      const result=allCleaned.map(r=>{
-        if(r.phone) r.phone=normalisePhone(String(r.phone));
-        if(!r.source) r.source="Scraped list";
-        r.seg=scoreSeg(r);
-        const k=(r.name||"").toLowerCase()+"|"+(r.company||"").toLowerCase();
-        const hasData=!!(r.name||r.company||r.email);
-        r._dup=hasData&&(seen.has(k)||ek.has(k));
+      const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
+
+      // Infer name from email helper
+      function nameFromEmail(email){
+        if(!email) return "";
+        const local=email.split("@")[0].toLowerCase();
+        // Skip generic emails
+        if(["info","enquiries","contact","hello","admin","accounts","mail","office","sales","support","contact","team"].includes(local)) return "";
+        // firstname.lastname → First Last
+        if(local.includes(".")){
+          return local.split(".").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
+        }
+        // flastname → F Last (single char initial)
+        if(local.length>2&&!local.match(/\d/)){
+          return local.charAt(0).toUpperCase()+local.slice(1);
+        }
+        return "";
+      }
+
+      const result=rows.map(row=>{
+        const m={};
+        Object.entries(map).forEach(([col,field])=>{
+          const val=(row[col]||"").trim();
+          if(!field||!val) return;
+          if(field==="first_name") m._f=val;
+          else if(field==="last_name") m._l=val;
+          else if(field==="postcode"){m.postcode=val;if(!m.location)m.location=val;}
+          else m[field]=val;
+        });
+        if(m._f||m._l){m.name=[m._f,m._l].filter(Boolean).join(" ");delete m._f;delete m._l;}
+
+        // Clean name — title case from all caps or all lowercase
+        if(m.name) m.name=m.name.toLowerCase().split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
+        // If name still blank, try email
+        if(!m.name&&m.email) m.name=nameFromEmail(m.email);
+
+        // Clean company — remove hyphens, leading dots, title case
+        if(m.company){
+          m.company=m.company.replace(/^[\.\-_]+/,"").replace(/-/g," ").split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
+        }
+
+        // Normalise phone
+        if(m.phone) m.phone=normalisePhone(m.phone);
+        if(!m.source) m.source="Scraped list";
+        m.seg=scoreSeg(m);
+        const k=(m.name||"").toLowerCase()+"|"+(m.company||"").toLowerCase();
+        const hasData=!!(m.name||m.company);
+        m._dup=hasData&&(seen.has(k)||ek.has(k));
         if(hasData&&k!=="|") seen.add(k);
-        return r;
-      }).filter(r=>r.name||r.company||r.email);
-
-      console.log("After filter:",result.length,"rows");
-      toast("✅ AI cleaned "+result.length+" leads — review before importing");
-      setProc(result);
-      setPhase("preview");
-
-    }catch(e){
-      console.error("AI import fatal error:",e);
-      toast("Fatal error: "+e.message);
-      setPhase("upload");
-    }
+        return m;
+      });
+      setProc(result);setPhase("preview");
+    },700);
   }
 
   function loadSample(t){const s=SAMPLE_CSV[t];const text=[s.h.join(","),...s.r.map(r=>r.join(","))].join("\n");runCSV(text,t+"_export.csv");}

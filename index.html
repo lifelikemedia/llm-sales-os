@@ -407,7 +407,7 @@ function scoreSeg(r){let s=0;
   const isNI=phone.startsWith("028")||phone.startsWith("+4428")||phone.startsWith("4428");
   if(isNI&&!loc)s+=3;if(loc.includes("belfast"))s+=4;else if(["northern ireland","antrim","lisburn","newry","derry"].some(p=>loc.includes(p)))s+=3;else if(loc.includes("ireland")||loc.includes("uk"))s+=1;if(/\b(owner|md|ceo|managing director|founder|principal)\b/.test(role))s+=3;else if(/\b(director|head of|vp)\b/.test(role))s+=2;else if(/\b(manager|marketing|sales)\b/.test(role))s+=1;if(emp>=10&&emp<=100)s+=2;else if(emp>100&&emp<=200)s+=1;return s>=7?"A":s>=4?"B":"C";}
 function getApiKey(){
-  return localStorage.getItem("sos_api_key")||"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";
+  return localStorage.getItem("sos_api_key")||"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";
 }
 
 const DEFAULT_SCRIPTS = [

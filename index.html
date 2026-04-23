@@ -128,6 +128,7 @@ input,select,textarea{font-family:Arial,Helvetica,sans-serif;}
 .spill{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;border:2px solid transparent;cursor:pointer;background:var(--bg2);color:var(--tx2);transition:all .15s;}
 .spill.s-prospect.on{background:#f0f9ff;color:#0369a1;border-color:#0369a1;}
 .spill.s-contacted.on{background:var(--aml);color:var(--am);border-color:var(--am);}
+.spill.s-positive.on{background:#dcfce7;color:#15803d;border-color:#15803d;}
 .spill.s-booked.on{background:var(--acl);color:var(--acd);border-color:var(--acd);}
 .spill.s-onsite.on{background:var(--pul);color:var(--pu);border-color:var(--pu);}
 .spill.s-proposal.on{background:#fdf4ff;color:#9333ea;border-color:#9333ea;}
@@ -1671,7 +1672,15 @@ function Pipeline({db,upd,toast,onOpen,onImport,role}){
               h("div",{className:"kbn"},l.name),
               h("div",{className:"kbs"},l.company),
               h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:5}},
-                h("span",{className:"seg-"+l.seg.toLowerCase(),style:{fontSize:11}},l.seg),
+                (()=>{
+                  const acts=db.activities.filter(a=>a.leadId===l.id).sort((x,y)=>new Date(x.loggedAt)-new Date(y.loggedAt));
+                  const firstContact=acts[0]?.loggedAt;
+                  const daysSince=firstContact?Math.floor((new Date()-new Date(firstContact))/(1000*60*60*24)):null;
+                  const currentDay=daysSince!==null?Math.min(daysSince+1,17):null;
+                  return currentDay
+                    ?h("span",{style:{fontSize:10,fontWeight:700,background:"var(--acl)",color:"var(--acd)",padding:"2px 7px",borderRadius:6}},"Day "+currentDay+"/17")
+                    :h("span",{style:{fontSize:10,fontWeight:600,color:"var(--tx3)"}},"Not started");
+                })(),
                 h("span",{style:{fontSize:9,color:"var(--tx3)"}},db.activities.filter(a=>a.leadId===l.id).length+" touches")
               ),
               l.dealAmount&&stage!=="Won"&&h("div",{style:{fontSize:10,color:"var(--tx2)",marginTop:4}},FMT(l.dealAmount)+(l.dealTerms?" · "+l.dealTerms:"")),

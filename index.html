@@ -2279,7 +2279,7 @@ function ImportModal({db,upd,toast,onClose}){
               h("td",{style:{padding:"7px 10px",fontWeight:600,fontSize:12}},row.name||"—"),
               h("td",{style:{padding:"7px 10px",color:"var(--tx2)",fontSize:12}},row.company||"—"),
               h("td",{style:{padding:"7px 10px",color:"var(--tx2)",fontSize:11}},row.role||"—"),
-              h("td",{style:{padding:"7px 10px"}},row._dup?h("span",{style:{fontSize:10,background:"var(--rdl)",color:"var(--rd)",padding:"2px 7px",borderRadius:20,fontWeight:700}},"Already added"):h("span",{style:{fontSize:10,background:"var(--acl)",color:"var(--acd)",padding:"2px 7px",borderRadius:20,fontWeight:700}},"New"))
+              h("td",{style:{padding:"7px 10px"}},row._dup?h("span",{style:{fontSize:10,background:"var(--rdl)",color:"var(--rd)",padding:"2px 7px",borderRadius:20,fontWeight:700}},"Duplicate"):row._update?h("span",{style:{fontSize:10,background:"#fef3c7",color:"#b45309",padding:"2px 7px",borderRadius:20,fontWeight:700}},"🔄 Will update"):h("span",{style:{fontSize:10,background:"var(--acl)",color:"var(--acd)",padding:"2px 7px",borderRadius:20,fontWeight:700}},"New"))
             )))
           )
         ),

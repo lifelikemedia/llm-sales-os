@@ -57,6 +57,7 @@ input,select,textarea{font-family:Arial,Helvetica,sans-serif;}
 .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
 .p-prospect{background:#f0f9ff;color:#0369a1;}
 .p-contacted{background:var(--aml);color:var(--am);}
+.p-positive{background:#dcfce7;color:#15803d;}
 .p-booked{background:var(--acl);color:var(--acd);}
 .p-onsite{background:var(--pul);color:var(--pu);}
 .p-proposal{background:#fdf4ff;color:#9333ea;}
@@ -361,17 +362,17 @@ const TARGET_ACTIONS = 100;
 const TARGET_MEETINGS = 6;
 
 // Pipeline stages — these replace the old Lead statuses
-const STAGES = ["Prospecting","Contacted","Meeting Booked","Proposal Sent","Won","Lost"];
+const STAGES = ["Prospecting","Contacted","Positive Conversation","Meeting Booked","Proposal Sent","Won","Lost"];
 const STAGE_COLORS = {
-  "Prospecting":"p-prospect","Contacted":"p-contacted","Meeting Booked":"p-booked",
+  "Prospecting":"p-prospect","Contacted":"p-contacted","Positive Conversation":"p-positive","Meeting Booked":"p-booked",
   "Proposal Sent":"p-proposal","Won":"p-won","Lost":"p-lost"
 };
 const STAGE_SPILL = {
-  "Prospecting":"s-prospect","Contacted":"s-contacted","Meeting Booked":"s-booked",
+  "Prospecting":"s-prospect","Contacted":"s-contacted","Positive Conversation":"s-positive","Meeting Booked":"s-booked",
   "Proposal Sent":"s-proposal","Won":"s-won","Lost":"s-lost"
 };
 const STAGE_EMOJI = {
-  "Prospecting":"🎯","Contacted":"📞","Meeting Booked":"📅",
+  "Prospecting":"🎯","Contacted":"📞","Positive Conversation":"💬","Meeting Booked":"📅",
   "Proposal Sent":"📄","Won":"🏆","Lost":"❌"
 };
 
@@ -2134,7 +2135,7 @@ function ImportModal({db,upd,toast,onClose}){
       const hdrs=rawHdrs.map(h=>h.trim());
       const rows=lines.slice(1).map(l=>{const v=parseLine(l);const o={};hdrs.forEach((h,i)=>o[h]=(v[i]||"").trim());return o;});
       const map={},used=new Set();
-      const directMap={"BRAND":"company","brand":"company","Brand":"company","Company Name":"company","INDUSTRY":"industry","Industry":"industry","industry":"industry","Contact":"name","contact":"name","CONTACT":"name","Role":"role","ROLE":"role","Phone Number":"phone","PHONE NUMBER":"phone","phone number":"phone","Phone":"phone","PHONE":"phone","Email":"email","EMAIL":"email","Email Address":"email","Address":"address","ADDRESS":"address","address":"address","Town":"location","TOWN":"location","town":"location","Postcode":"postcode","POSTCODE":"postcode","postcode":"postcode"};
+      const directMap={"BRAND":"company","brand":"company","Brand":"company","Company Name":"company","INDUSTRY":"industry","Industry":"industry","industry":"industry","Contact":"name","contact":"name","CONTACT":"name","Role":"role","ROLE":"role","Phone Number":"phone","PHONE NUMBER":"phone","phone number":"phone","Phone":"phone","PHONE":"phone","Email":"email","EMAIL":"email","Email Address":"email","Address":"address","ADDRESS":"address","address":"address","Town":"location","TOWN":"location","town":"location","Postcode":"postcode","POSTCODE":"postcode","postcode":"postcode","NAME 1":"name","NAME":"name","Name":"name","NAME 2":"name","Name 1":"name","Website":"website","WEBSITE":"website","website":"website","Mobile":"phone","MOBILE":"phone","mobile":"phone","Director":"name","DIRECTOR":"name","Business Name":"company","BUSINESS NAME":"company","Full Name":"name","Location":"location","LOCATION":"location"};
       const fc=hdrs.find(x=>/first.?name/i.test(x)),lc=hdrs.find(x=>/last.?name/i.test(x));
       if(fc){map[fc]="first_name";used.add("first_name");}if(lc){map[lc]="last_name";used.add("last_name");}
       // Pass 1: direct matches only, skip blank headers

@@ -2270,7 +2270,7 @@ function ImportModal({db,upd,toast,onClose}){
       ),
 
       phase==="preview"&&h("div",null,
-        h("div",{className:"sbar"},[["📊 Total",proc.length,""],["✅ New",nc,"g"],["⚠️ In system",proc.filter(r=>r._dup).length,"am"],["🎯 A-segment",proc.filter(r=>r.seg==="A"&&!r._dup).length,"g"]].map(([l,v,c])=>h("div",{key:l,className:"sbox"},h("div",{className:"sbl"},l),h("div",{className:"sbv"+(c?" "+c:"")},v)))),
+        h("div",{className:"sbar"},[["📊 Total",proc.length,""],["✅ New",proc.filter(r=>!r._dup&&!r._update&&(r.name||r.company)).length,"g"],["🔄 Updates",proc.filter(r=>r._update).length,"am"],["⚠️ Duplicates",proc.filter(r=>r._dup).length,""]].map(([l,v,c])=>h("div",{key:l,className:"sbox"},h("div",{className:"sbl"},l),h("div",{className:"sbv"+(c?" "+c:"")},v)))),
         h("div",{style:{overflowX:"auto",maxHeight:220,overflowY:"auto",border:"1px solid var(--bd)",borderRadius:8,marginBottom:12}},
           h("table",{style:{width:"100%",borderCollapse:"collapse"}},
             h("thead",null,h("tr",null,["Seg","Name","Company","Role","Status"].map(c=>h("th",{key:c,style:{fontSize:10,color:"var(--tx3)",textTransform:"uppercase",letterSpacing:".7px",padding:"7px 10px",textAlign:"left",borderBottom:"1px solid var(--bd)",fontWeight:700,background:"var(--bg2)"}},c)))),
@@ -2285,7 +2285,7 @@ function ImportModal({db,upd,toast,onClose}){
         ),
         h("div",{style:{display:"flex",gap:8,justifyContent:"flex-end"}},
           h("button",{className:"btn btn-s",onClick:()=>{setPhase("upload");setProc([]);}},"← Back"),
-          h("button",{className:"btn btn-p",style:{padding:"9px 20px"},onClick:doImport},"✅ Import "+nc+" leads to Prospecting")
+          h("button",{className:"btn btn-p",style:{padding:"9px 20px"},onClick:doImport},"✅ Import "+(proc.filter(r=>!r._dup&&!r._update&&(r.name||r.company)).length)+" new"+(proc.filter(r=>r._update).length>0?" · Update "+proc.filter(r=>r._update).length:""))
         )
       ),
 

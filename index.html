@@ -2153,7 +2153,24 @@ function ImportModal({db,upd,toast,onClose}){
         if(bf&&bs>=2){map[hh]=bf;used.add(bf);}else map[hh]="";
       });
       const seen=new Set();
-      const ek=new Set(db.leads.map(l=>(l.name||"").toLowerCase()+"|"+(l.company||"").toLowerCase()).filter(k=>k!=="|"));
+      const byCompany={},byEmail={},byPhone={},byNameCompany={};
+      db.leads.forEach(l=>{
+        const co=(l.company||"").toLowerCase().trim();
+        const em=(l.email||"").toLowerCase().trim();
+        const ph=(l.phone||"").replace(/\D/g,"");
+        const nc=(l.name||"").toLowerCase().trim()+"|"+co;
+        if(co) byCompany[co]=l;
+        if(em) byEmail[em]=l;
+        if(ph) byPhone[ph]=l;
+        if(nc!=="|") byNameCompany[nc]=l;
+      });
+      function findExisting(row){
+        const co=(row.company||"").toLowerCase().trim();
+        const em=(row.email||"").toLowerCase().trim();
+        const ph=(row.phone||"").replace(/\D/g,"");
+        const nc=(row.name||"").toLowerCase().trim()+"|"+co;
+        return byNameCompany[nc]||byEmail[em]||byPhone[ph]||byCompany[co]||null;
+      }
 
       // Infer name from email helper
       function nameFromEmail(email){
@@ -2198,9 +2215,12 @@ function ImportModal({db,upd,toast,onClose}){
         if(m.phone) m.phone=normalisePhone(m.phone);
         if(!m.source) m.source="Scraped list";
         m.seg=scoreSeg(m);
+        const hasData=!!(m.name||m.company||m.email||m.phone);
         const k=(m.name||"").toLowerCase()+"|"+(m.company||"").toLowerCase();
-        const hasData=!!(m.name||m.company);
-        m._dup=hasData&&(seen.has(k)||ek.has(k));
+        const existing=hasData?findExisting(m):null;
+        if(existing){m._update=existing;m._dup=false;}
+        else if(hasData&&seen.has(k)){m._dup=true;}
+        else {m._dup=false;}
         if(hasData&&k!=="|") seen.add(k);
         return m;
       });
@@ -2211,10 +2231,12 @@ function ImportModal({db,upd,toast,onClose}){
   function loadSample(t){const s=SAMPLE_CSV[t];const text=[s.h.join(","),...s.r.map(r=>r.join(","))].join("\n");runCSV(text,t+"_export.csv");}
 
   async function doImport(){
-    const nl=proc.filter(r=>!r._dup&&(r.name||r.company));
-    const a=nl.filter(r=>r.seg==="A").length,b=nl.filter(r=>r.seg==="B").length,c=nl.filter(r=>r.seg==="C").length;
-    // Save directly to Supabase in batches
-    const rows=nl.map(r=>({
+    const newLeads=proc.filter(r=>!r._dup&&!r._update&&(r.name||r.company));
+    const updates=proc.filter(r=>r._update);
+    const a=newLeads.filter(r=>r.seg==="A").length,b=newLeads.filter(r=>r.seg==="B").length,c=newLeads.filter(r=>r.seg==="C").length;
+
+    // INSERT NEW LEADS
+    const rows=newLeads.map(r=>({
       name:r.name||"",company:r.company||"",role:r.role||"",
       phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",
       address:r.address||r.location||"",postcode:r.postcode||"",
@@ -2223,7 +2245,6 @@ function ImportModal({db,upd,toast,onClose}){
       seg:r.seg,source:r.source||"Scraped list",owner:"",
       stage:"Prospecting",notes:""
     }));
-    // Insert in batches of 50
     let inserted=[];
     for(let i=0;i<rows.length;i+=50){
       const batch=rows.slice(i,i+50);
@@ -2231,17 +2252,45 @@ function ImportModal({db,upd,toast,onClose}){
       if(error){toast("Import error: "+error.message);console.error(error);return;}
       if(data) inserted=[...inserted,...data];
     }
-    // Update local state with Supabase-assigned UUIDs
-    upd(p=>({...p,leads:[...p.leads,...inserted.map(r=>({
-      id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",
-      phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",
-      address:r.address||"",postcode:r.postcode||"",website:r.website||"",
-      instagram:"",facebook:"",twitter:"",industry:r.industry||"",
-      revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"C",
-      source:r.source||"Scraped list",owner:"",stage:"Prospecting",
-      createdAt:r.created_at?.split("T")[0]||TODAY(),notes:""
-    }))]}));
-    setSum({total:nl.length,a,b,c});setPhase("done");toast("🎉 "+nl.length+" leads saved to Supabase!");
+
+    // UPDATE EXISTING — only fill empty fields
+    let updatedCount=0;
+    const updatedLocal=[];
+    for(const u of updates){
+      const existing=u._update;
+      const patch={};
+      ["name","company","role","phone","email","linkedin","address","postcode","website","industry","revenue","employees"].forEach(f=>{
+        const newVal=u[f]||(f==="address"?u.location:"")||"";
+        if(!existing[f]&&newVal){patch[f]=newVal;}
+      });
+      if(Object.keys(patch).length>0){
+        const {error}=await supa.from("leads").update(patch).eq("id",existing.id);
+        if(!error){updatedCount++;updatedLocal.push({...existing,...patch});}
+        else console.error("Update error:",error);
+      }
+    }
+
+    upd(p=>{
+      const updatedIds=new Set(updatedLocal.map(l=>l.id));
+      return{
+        ...p,
+        leads:[
+          ...p.leads.map(l=>updatedIds.has(l.id)?updatedLocal.find(u=>u.id===l.id):l),
+          ...inserted.map(r=>({
+            id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",
+            phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",
+            address:r.address||"",postcode:r.postcode||"",website:r.website||"",
+            instagram:"",facebook:"",twitter:"",industry:r.industry||"",
+            revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"C",
+            source:r.source||"Scraped list",owner:"",stage:"Prospecting",
+            createdAt:r.created_at?.split("T")[0]||TODAY(),notes:""
+          }))
+        ]
+      };
+    });
+
+    setSum({total:newLeads.length,a,b,c});setPhase("done");
+    toast("🎉 "+inserted.length+" new"+(updatedCount>0?" · "+updatedCount+" updated":""));
   }
 
   const nc=proc.filter(r=>!r._dup).length;

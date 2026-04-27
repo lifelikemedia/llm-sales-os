@@ -1074,7 +1074,7 @@ function App(){
 
   // Convert DB row to app format
   function dbToLead(r){return{id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",address:r.address||"",website:r.website||"",industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"B",source:r.source||"",stage:r.stage||"Prospecting",dealAmount:r.deal_amount,dealTerms:r.deal_terms,depositAmount:r.deposit_amount,wonAt:r.won_at,postcode:r.postcode||"",instagram:r.instagram||"",facebook:r.facebook||"",twitter:r.twitter||"",owner:r.owner||"",notes:r.notes||"",createdAt:r.created_at?.split("T")[0]||TODAY(),stageChangedAt:r.stage_changed_at?.split("T")[0]||null};}
-  function dbToActivity(r){return{id:r.id,leadId:r.lead_id,leadName:r.lead_name||"",type:r.type||"Call",outcome:r.outcome||"",scriptId:r.script_id,day:r.day||1,note:r.note||"",loggedAt:r.logged_at||TODAY()};}
+  function dbToActivity(r){return{id:r.id,leadId:r.lead_id,leadName:r.lead_name||"",type:r.type||"Call",outcome:r.outcome||"",scriptId:r.script_id,day:r.day||1,note:r.note||"",loggedAt:r.logged_at||TODAY(),loggedAtTime:r.created_at||null};}
 
   // Save lead to Supabase
   async function saveLead(lead){
@@ -1214,7 +1214,7 @@ function PerfPanel({db,keys,onClose}){
       :db.leads.filter(l=>l.stage==="Won"&&(l.wonAt||l.createdAt)===TODAY()).reduce((s,l)=>s+(l.dealAmount||6900),0);
   const comm=rev*COMM_RATE;
   const daysInMonth=new Date(parseInt((month||"2026-04").split("-")[0]),parseInt((month||"2026-04").split("-")[1]),0).getDate();
-  const actTarget=view==="daily"?tActions:view==="weekly"?tActions*7:tActions*daysInMonth;
+  const actTarget=view==="daily"?tActions:view==="weekly"?tActions*5:tActions*22;
   const meetTarget=view==="daily"?Math.ceil(tMeetings/7):view==="weekly"?tMeetings:tMeetings*4;
   const dealTarget=view==="daily"?Math.ceil(tDeals/30):view==="weekly"?Math.ceil(tDeals/4):tDeals;
   const revTarget=view==="daily"?Math.round(tRevenue/30):view==="weekly"?Math.round(tRevenue/4):tRevenue;
@@ -1238,8 +1238,14 @@ function PerfPanel({db,keys,onClose}){
     ),
     h("div",{className:"perf-tabs"},
       [["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]].map(([v,l])=>
-        h("button",{key:v,className:"perf-tab"+(view===v?" on":""),onClick:()=>setView(v)},l)
+        h("button",{key:v,className:"perf-tab"+(view===v?" on":""),onClick:()=>{setView(v);setDayOffset(0);setWeekOffset(0);}},l)
       )
+    ),
+    // Date range navigation
+    (view==="daily"||view==="weekly")&&h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,padding:"6px 8px",background:"var(--bg2)",borderRadius:8}},
+      h("button",{style:{background:"none",border:"none",color:"var(--tx2)",cursor:"pointer",fontSize:13,padding:"2px 6px"},onClick:()=>view==="daily"?setDayOffset(d=>d+1):setWeekOffset(d=>d+1)},"◀"),
+      h("div",{style:{fontSize:11,fontWeight:600,color:"var(--tx)"}},getRangeLabel()),
+      h("button",{style:{background:"none",border:"none",color:(view==="daily"?dayOffset===0:weekOffset===0)?"var(--tx3)":"var(--tx2)",cursor:(view==="daily"?dayOffset===0:weekOffset===0)?"default":"pointer",fontSize:13,padding:"2px 6px"},disabled:view==="daily"?dayOffset===0:weekOffset===0,onClick:()=>view==="daily"?setDayOffset(d=>Math.max(0,d-1)):setWeekOffset(d=>Math.max(0,d-1))},"▶")
     ),
     view==="monthly"&&h("div",{style:{marginBottom:10}},
       h("input",{type:"month",value:month,onChange:e=>setMonth(e.target.value),style:{background:"var(--bg2)",border:"1px solid var(--bd2)",borderRadius:8,color:"var(--tx)",padding:"5px 9px",fontSize:11,width:"100%",outline:"none"}})

@@ -476,7 +476,7 @@ function loadKeys(){
     rcJwt:"eyJraWQiOiI4NzYyZjU5OGQwNTk0NGRiODZiZjVjYTk3ODA0NzYwOCIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJhdWQiOiJodHRwczovL3BsYXRmb3JtLnJpbmdjZW50cmFsLmNvbS9yZXN0YXBpL29hdXRoL3Rva2VuIiwic3ViIjoiMTIyODIyOTA0NSIsImlzcyI6Imh0dHBzOi8vcGxhdGZvcm0ucmluZ2NlbnRyYWwuY29tIiwiZXhwIjozOTIzODE5Nzc4LCJpYXQiOjE3NzYzMzYxMzEsImp0aSI6IklQMUx4Z3dqU2FHU2I2N1QzVmdhakEifQ.D8iPK76N7gb8t0mXPQshWQ7Qv_rS7abpPpWJNzNjGwZLFt-ah_SmyTuTSKXFpV3Gq_QKauOoQqLiOUAHjDB-yzak0asbAj2pcIgNXnjfUzcnacWDj7e6VDur814iHFDBOfHMfOtcNgrKM-kAFV80UQEhYxzwTHyX77mSuFARWS8J5Ygg3fk-dpn1xxGTl5tmJ1jzIkSrh7EFsgp3td6O5Chyrgh401m7U5DXYe_F52zgxDhACS61qflNRf3wVHWMf4HA-68jN4QW8ftRuXgUmpt4c3GBhkazUx3mApiKocVq5i-64IjKzBAizRWicYDWRzxPR-ofR-9j7Xwn1TvBvQ",
     ffApiKey:"",
     targetActions:100,
-    targetMeetings:6,
+    targetMeetings:7,
     targetDeals:4,
     targetRevenue:27600
   };
@@ -1073,7 +1073,7 @@ function App(){
   }
 
   // Convert DB row to app format
-  function dbToLead(r){return{id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",address:r.address||"",website:r.website||"",industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"B",source:r.source||"",stage:r.stage||"Prospecting",dealAmount:r.deal_amount,dealTerms:r.deal_terms,depositAmount:r.deposit_amount,wonAt:r.won_at,postcode:r.postcode||"",instagram:r.instagram||"",facebook:r.facebook||"",twitter:r.twitter||"",owner:r.owner||"",notes:r.notes||"",createdAt:r.created_at?.split("T")[0]||TODAY()};}
+  function dbToLead(r){return{id:r.id,name:r.name||"",company:r.company||"",role:r.role||"",phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",address:r.address||"",website:r.website||"",industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"B",source:r.source||"",stage:r.stage||"Prospecting",dealAmount:r.deal_amount,dealTerms:r.deal_terms,depositAmount:r.deposit_amount,wonAt:r.won_at,postcode:r.postcode||"",instagram:r.instagram||"",facebook:r.facebook||"",twitter:r.twitter||"",owner:r.owner||"",notes:r.notes||"",createdAt:r.created_at?.split("T")[0]||TODAY(),stageChangedAt:r.stage_changed_at?.split("T")[0]||null};}
   function dbToActivity(r){return{id:r.id,leadId:r.lead_id,leadName:r.lead_name||"",type:r.type||"Call",outcome:r.outcome||"",scriptId:r.script_id,day:r.day||1,note:r.note||"",loggedAt:r.logged_at||TODAY()};}
 
   // Save lead to Supabase
@@ -1215,7 +1215,7 @@ function PerfPanel({db,keys,onClose}){
   const comm=rev*COMM_RATE;
   const daysInMonth=new Date(parseInt((month||"2026-04").split("-")[0]),parseInt((month||"2026-04").split("-")[1]),0).getDate();
   const actTarget=view==="daily"?tActions:view==="weekly"?tActions*7:tActions*daysInMonth;
-  const meetTarget=view==="daily"?Math.ceil(tMeetings/5):view==="weekly"?tMeetings:Math.round(tMeetings*4.3);
+  const meetTarget=view==="daily"?Math.ceil(tMeetings/7):view==="weekly"?tMeetings:tMeetings*4;
   const dealTarget=view==="daily"?Math.ceil(tDeals/30):view==="weekly"?Math.ceil(tDeals/4):tDeals;
   const revTarget=view==="daily"?Math.round(tRevenue/30):view==="weekly"?Math.round(tRevenue/4):tRevenue;
   function barCls(a,t){const p=t>0?a/t:0;return p>=1?"over":p>=0.7?"on-track":"under";}
@@ -1267,7 +1267,7 @@ function Daily({db,upd,go,onOpen,keys,role}){
   const ta=db.activities.filter(a=>a.loggedAt===TODAY());
   const cnt=ta.length;
   const bk=ta.filter(a=>a.outcome==="Booked meeting").length+
-    db.leads.filter(l=>l.stage==="Meeting Booked"&&(l.stageChangedAt||l.createdAt)===TODAY()).length;
+    db.leads.filter(l=>l.stage==="Meeting Booked"&&((l.stageChangedAt||l.stage_changed_at||l.createdAt)===TODAY())).length;
   const won=db.leads.filter(l=>l.stage==="Won");
   const rev=won.reduce((s,l)=>s+(l.dealAmount||6900),0);
   const comm=rev*COMM_RATE;
@@ -1631,10 +1631,12 @@ function Pipeline({db,upd,toast,onOpen,onImport,role}){
     dragId.current=null;
   }
 
-  function quickAdd(){
+  async function quickAdd(){
     if(!addForm.name||!addForm.company){toast("Name and company required");return;}
-    const l={id:Date.now(),name:addForm.name,company:addForm.company,role:addForm.role||"",phone:addForm.phone||"",email:"",linkedin:"",address:"",website:"",industry:"",revenue:"",employees:"",seg:addForm.seg,source:"Manual",stage:addCol,createdAt:TODAY(),notes:""};
-    upd(p=>({...p,leads:[...p.leads,l]}));
+    const row={name:addForm.name,company:addForm.company,role:addForm.role||"",phone:addForm.phone||"",email:"",linkedin:"",address:"",postcode:"",website:"",instagram:"",facebook:"",twitter:"",industry:"",revenue:"",employees:"",seg:addForm.seg,source:"Manual",stage:addCol,owner:"",notes:""};
+    const {data,error}=await supa.from("leads").insert(row).select().single();
+    if(error){toast("Error: "+error.message);console.error(error);return;}
+    // Don't manually update — real-time sync will handle it via loadUserData
     toast("Lead added to "+addCol);setAddCol(null);setAddForm({name:"",company:"",phone:"",role:"",seg:"A"});
   }
 

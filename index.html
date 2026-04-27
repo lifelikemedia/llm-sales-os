@@ -1266,7 +1266,8 @@ function Daily({db,upd,go,onOpen,keys,role}){
 
   const ta=db.activities.filter(a=>a.loggedAt===TODAY());
   const cnt=ta.length;
-  const bk=ta.filter(a=>a.outcome==="Booked meeting").length;
+  const bk=ta.filter(a=>a.outcome==="Booked meeting").length+
+    db.leads.filter(l=>l.stage==="Meeting Booked"&&(l.stageChangedAt||l.createdAt)===TODAY()).length;
   const won=db.leads.filter(l=>l.stage==="Won");
   const rev=won.reduce((s,l)=>s+(l.dealAmount||6900),0);
   const comm=rev*COMM_RATE;
@@ -1598,12 +1599,35 @@ function Pipeline({db,upd,toast,onOpen,onImport,role}){
   function onDS(e,id){dragId.current=id;e.dataTransfer.effectAllowed="move";e.currentTarget.classList.add("dragging");}
   function onDE(e){e.currentTarget.classList.remove("dragging");document.querySelectorAll(".kcol").forEach(c=>c.classList.remove("dov"));}
   function onCDO(e){e.preventDefault();document.querySelectorAll(".kcol").forEach(c=>c.classList.remove("dov"));e.currentTarget.classList.add("dov");}
-  function onDrop(e,stage){
+  async function onDrop(e,stage){
     e.preventDefault();document.querySelectorAll(".kcol").forEach(c=>c.classList.remove("dov"));
     if(dragId.current===null)return;
     const id=dragId.current;
-    upd(p=>({...p,leads:p.leads.map(l=>l.id===id?{...l,stage}:l)}));
-    toast("Moved to "+stage);
+    const now=TODAY();
+    upd(p=>({...p,leads:p.leads.map(l=>l.id===id?{...l,stage,stageChangedAt:now}:l)}));
+    const {error}=await supa.from("leads").update({stage,stage_changed_at:now}).eq("id",id);
+    if(error){toast("Sync error: "+error.message);console.error(error);}
+    else{
+      // Auto-log activity if moved to Meeting Booked
+      if(stage==="Meeting Booked"){
+        const lead=db.leads.find(l=>l.id===id);
+        if(lead){
+          const act={
+            id:Date.now(),
+            leadId:id,
+            leadName:lead.name||lead.company,
+            type:"Meeting",
+            outcome:"Booked meeting",
+            scriptId:null,
+            note:"Moved to Meeting Booked",
+            loggedAt:now
+          };
+          upd(p=>({...p,activities:[...p.activities,act]}));
+          await supa.from("activities").insert({lead_id:id,type:"Meeting",outcome:"Booked meeting",note:"Moved to Meeting Booked",logged_at:now});
+        }
+      }
+      toast("Moved to "+stage);
+    }
     dragId.current=null;
   }
 

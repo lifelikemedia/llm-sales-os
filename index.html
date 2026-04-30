@@ -508,7 +508,23 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
   const [wonTerms,setWonTerms]=useState("Full Pay");
   const [wonDeposit,setWonDeposit]=useState("");
   const [geoOpen,setGeoOpen]=useState(false);
+  const [contactIdx,setContactIdx]=useState(0); // 0 = primary, 1+ = contact array index
   if(!lead) return null;
+
+  // Active contact derivation
+  const isPrimary=contactIdx===0;
+  const activeContact=isPrimary
+    ?{name:lead.name||"",role:lead.role||"",phone:lead.phone||"",email:lead.email||"",linkedin:lead.linkedin||""}
+    :(lead.contacts||[])[contactIdx-1]||{name:"",role:"",phone:"",email:"",linkedin:""};
+
+  // Update active contact (primary updates lead fields, others update contacts array)
+  function updateActiveContact(field,value){
+    if(isPrimary){upL(field,value);return;}
+    const arrIdx=contactIdx-1;
+    const newContacts=[...(lead.contacts||[])];
+    newContacts[arrIdx]={...newContacts[arrIdx],[field]:value};
+    upL("contacts",newContacts);
+  }
 
   const acts=db.activities.filter(a=>a.leadId===lead.id).sort((a,b)=>new Date(b.loggedAt)-new Date(a.loggedAt));
   const initials=lead.name.split(" ").map(n=>n[0]).slice(0,2).join("").toUpperCase();
@@ -654,17 +670,48 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
           h("div",{className:"psec-title"},"Contact"),
           h("div",{style:{display:"flex",flexDirection:"column",gap:7}},
 
-            // NAME
+            // CONTACTS DROPDOWN - if there are multiple contacts
+            (lead.contacts&&lead.contacts.length>0)&&h("div",{style:{marginBottom:7}},
+              h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}},
+                h("div",{style:{fontSize:11,fontWeight:700,color:"var(--tx2)",textTransform:"uppercase",letterSpacing:0.4}},"👥 Contacts ("+(1+lead.contacts.length)+")"),
+                h("button",{
+                  style:{background:"var(--acl)",color:"var(--acd)",border:"none",borderRadius:6,padding:"3px 9px",fontSize:11,fontWeight:600,cursor:"pointer"},
+                  onClick:()=>{
+                    const newContact={name:"",role:"",phone:"",email:"",linkedin:""};
+                    upL("contacts",[...(lead.contacts||[]),newContact]);
+                  }
+                },"+ Add")
+              ),
+              h("select",{
+                className:"ef-inp",
+                value:contactIdx,
+                onChange:e=>setContactIdx(parseInt(e.target.value)),
+                style:{fontSize:12,fontWeight:600}
+              },
+                h("option",{value:0},(lead.name||"Primary")+(lead.role?" — "+lead.role:"")+" (primary)"),
+                lead.contacts.map((c,i)=>h("option",{key:i,value:i+1},(c.name||"Unnamed")+(c.role?" — "+c.role:"")))
+              ),
+              contactIdx>0&&h("button",{
+                style:{background:"none",border:"none",color:"var(--rd)",fontSize:11,cursor:"pointer",marginTop:4,padding:0},
+                onClick:()=>{
+                  const newContacts=lead.contacts.filter((_,i)=>i!==contactIdx-1);
+                  upL("contacts",newContacts);
+                  setContactIdx(0);
+                }
+              },"🗑️ Remove this contact")
+            ),
+
+            // NAME (or active contact name)
             h("div",{className:"ef"},
               h("div",{className:"ef-lbl"},"Name"),
-              h("input",{className:"ef-inp",value:lead.name||"",onChange:e=>upL("name",e.target.value),placeholder:"Full name"})
+              h("input",{className:"ef-inp",value:activeContact.name||"",onChange:e=>updateActiveContact("name",e.target.value),placeholder:"Full name"})
             ),
 
             // ROLE + COMPANY
             h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}},
               h("div",{className:"ef"},
                 h("div",{className:"ef-lbl"},"Role"),
-                h("input",{className:"ef-inp",value:lead.role||"",onChange:e=>upL("role",e.target.value),placeholder:"e.g. CEO"})
+                h("input",{className:"ef-inp",value:activeContact.role||"",onChange:e=>updateActiveContact("role",e.target.value),placeholder:"e.g. CEO"})
               ),
               h("div",{className:"ef"},
                 h("div",{className:"ef-lbl"},"Company"),
@@ -676,8 +723,8 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
             h("div",{className:"ef"},
               h("div",{className:"ef-lbl"},"Email"),
               h("div",{style:{display:"flex",alignItems:"center",gap:6}},
-                h("input",{className:"ef-inp",value:lead.email||"",onChange:e=>upL("email",e.target.value),placeholder:"email@company.com"}),
-                lead.email&&h("a",{href:"mailto:"+lead.email,style:{fontSize:11,color:"var(--bl)",flexShrink:0,textDecoration:"none"}},"Send \u2192")
+                h("input",{className:"ef-inp",value:activeContact.email||"",onChange:e=>updateActiveContact("email",e.target.value),placeholder:"email@company.com"}),
+                activeContact.email&&h("a",{href:"mailto:"+activeContact.email,style:{fontSize:11,color:"var(--bl)",flexShrink:0,textDecoration:"none"}},"Send \u2192")
               )
             ),
 
@@ -685,12 +732,12 @@ function LeadPanel({leadId,db,upd,onClose,toast,goChat,role,keys}){
             h("div",{className:"ef"},
               h("div",{className:"ef-lbl"},"Phone"),
               h("div",{style:{display:"flex",alignItems:"center",gap:6}},
-                h("input",{className:"ef-inp",style:{fontFamily:"'Courier New',monospace"},value:lead.phone||"",onChange:e=>upL("phone",e.target.value),placeholder:"+44 28 9000 0000"}),
-                lead.phone&&h("button",{
+                h("input",{className:"ef-inp",style:{fontFamily:"'Courier New',monospace"},value:activeContact.phone||"",onChange:e=>updateActiveContact("phone",e.target.value),placeholder:"+44 28 9000 0000"}),
+                activeContact.phone&&h("button",{
                   className:"btn btn-ok btn-sm",
                   style:{flexShrink:0,fontWeight:600},
                   onClick:async()=>{
-                    toast("📞 Calling "+lead.name+"...");
+                    toast("📞 Calling "+(activeContact.name||lead.company)+"...");
                     try{
                       const tokenRes=await fetch("https://platform.ringcentral.com/restapi/oauth/token",{
                         method:"POST",
@@ -1050,9 +1097,32 @@ function App(){
       if(settings){setKeys(k=>({...k,...settings}));}
 
       // Load leads
-      const {data:leads}=await supa.from("leads").select("*").order("created_at",{ascending:false});
+      // Load leads in batches of 1000 (Supabase default limit)
+      let allLeads=[];
+      let from_=0;
+      const PAGE=1000;
+      while(true){
+        const {data:batch,error:bErr}=await supa.from("leads").select("*").order("created_at",{ascending:false}).range(from_,from_+PAGE-1);
+        if(bErr){console.error("Lead load error:",bErr);break;}
+        if(!batch||batch.length===0) break;
+        allLeads=[...allLeads,...batch];
+        if(batch.length<PAGE) break;
+        from_+=PAGE;
+      }
+      const leads=allLeads;
       // Load activities
-      const {data:activities}=await supa.from("activities").select("*").order("created_at",{ascending:false});
+      // Load activities paginated
+      let allActs=[];
+      let aFrom=0;
+      while(true){
+        const {data:aBatch,error:aErr}=await supa.from("activities").select("*").order("created_at",{ascending:false}).range(aFrom,aFrom+PAGE-1);
+        if(aErr){console.error("Activity load error:",aErr);break;}
+        if(!aBatch||aBatch.length===0) break;
+        allActs=[...allActs,...aBatch];
+        if(aBatch.length<PAGE) break;
+        aFrom+=PAGE;
+      }
+      const activities=allActs;
       // Load scripts
       const {data:scripts}=await supa.from("scripts").select("*");
       // Load manual days
@@ -1061,8 +1131,58 @@ function App(){
       const manualDaysObj={};
       (manualDays||[]).forEach(m=>{manualDaysObj[m.lead_id+"_"+m.day]=true;});
 
+      const mappedLeads=(leads||[]).map(dbToLead);
+
+      // ── ONE-TIME AUTO-MERGE: companies with multiple cards get merged ──
+      const mergeFlagKey="sos_merged_v1_"+sess.user.id;
+      if(!localStorage.getItem(mergeFlagKey)){
+        const byCompany={};
+        mappedLeads.forEach(l=>{
+          const ck=(l.company||"").toLowerCase().trim();
+          if(!ck) return;
+          if(!byCompany[ck]) byCompany[ck]=[];
+          byCompany[ck].push(l);
+        });
+        const toMergeGroups=Object.values(byCompany).filter(g=>g.length>1);
+        if(toMergeGroups.length>0){
+          console.log("Auto-merging "+toMergeGroups.length+" companies with duplicate cards");
+          for(const group of toMergeGroups){
+            // Pick the most populated lead as the keeper (most fields filled)
+            const score=l=>["name","email","phone","website","postcode","address","role","linkedin","industry"].filter(f=>l[f]).length;
+            group.sort((a,b)=>score(b)-score(a));
+            const keeper=group[0];
+            const others=group.slice(1);
+            const existingContacts=Array.isArray(keeper.contacts)?keeper.contacts:[];
+            const seenKeys=new Set(existingContacts.map(c=>(c.email||c.phone||c.name||"").toLowerCase()));
+            const newContacts=[...existingContacts];
+            others.forEach(o=>{
+              if(o.name||o.email||o.phone){
+                const k=(o.email||o.phone||o.name||"").toLowerCase();
+                if(k&&!seenKeys.has(k)){
+                  newContacts.push({name:o.name||"",role:o.role||"",phone:o.phone||"",email:o.email||"",linkedin:o.linkedin||""});
+                  seenKeys.add(k);
+                }
+              }
+            });
+            // Update keeper with merged contacts
+            await supa.from("leads").update({contacts:newContacts}).eq("id",keeper.id);
+            // Move all activities from others to keeper
+            for(const o of others){
+              await supa.from("activities").update({lead_id:keeper.id}).eq("lead_id",o.id);
+              await supa.from("leads").delete().eq("id",o.id);
+            }
+          }
+          localStorage.setItem(mergeFlagKey,"1");
+          shT("✅ Merged duplicate company cards — reloading...");
+          setTimeout(()=>window.location.reload(),1500);
+          return;
+        } else {
+          localStorage.setItem(mergeFlagKey,"1");
+        }
+      }
+
       setDB({
-        leads:(leads||[]).map(dbToLead),
+        leads:mappedLeads,
         activities:(activities||[]).map(dbToActivity),
         scripts:scripts&&scripts.length>0?scripts:DEFAULT_SCRIPTS,
         manualDays:manualDaysObj,
@@ -1078,7 +1198,7 @@ function App(){
 
   // Save lead to Supabase
   async function saveLead(lead){
-    const row={name:lead.name,company:lead.company,role:lead.role,phone:lead.phone,email:lead.email,linkedin:lead.linkedin,address:lead.address,postcode:lead.postcode||null,website:lead.website,instagram:lead.instagram||null,facebook:lead.facebook||null,twitter:lead.twitter||null,industry:lead.industry,revenue:lead.revenue,employees:lead.employees,seg:lead.seg,source:lead.source,stage:lead.stage,owner:lead.owner||null,deal_amount:lead.dealAmount||null,deal_terms:lead.dealTerms||null,deposit_amount:lead.depositAmount||null,won_at:lead.wonAt||null,notes:lead.notes};
+    const row={name:lead.name,company:lead.company,role:lead.role,phone:lead.phone,email:lead.email,linkedin:lead.linkedin,address:lead.address,postcode:lead.postcode||null,website:lead.website,instagram:lead.instagram||null,facebook:lead.facebook||null,twitter:lead.twitter||null,industry:lead.industry,revenue:lead.revenue,employees:lead.employees,seg:lead.seg,source:lead.source,stage:lead.stage,owner:lead.owner||null,deal_amount:lead.dealAmount||null,deal_terms:lead.dealTerms||null,deposit_amount:lead.depositAmount||null,won_at:lead.wonAt||null,notes:lead.notes,contacts:lead.contacts||[]};
     if(lead.id&&typeof lead.id==="string"&&lead.id.includes("-")){
       await supa.from("leads").update(row).eq("id",lead.id);
     } else {
@@ -1502,7 +1622,7 @@ function AILogger({db,upd,toast,onLeadOpen}){
     const actx=recentActs.map(a=>a.loggedAt+"|"+a.type+"|"+a.outcome+"|lead:"+(a.leadName||a.leadId)).join("\n");
     const wonLeads=db.leads.filter(l=>l.stage==="Won");
     const dealCtx=wonLeads.map(l=>l.name+"|"+l.company+"|£"+(l.dealAmount||6900)+"|"+(l.wonAt||"unknown date")).join("\n");
-    const sys="You are an AI sales logger AND assistant for Life Like Media, a Belfast video agency. Standard deal is £6,900 but deals can vary.\n\nLEADS:\n"+lctx+"\n\nACTIVE SCRIPTS:\n"+sctx+"\n\nRECENT ACTIVITIES (last 30 days, format: date|type|outcome|lead):\n"+actx+"\n\nWON DEALS:\n"+dealCtx+"\n\nTODAY: "+TODAY()+"\n\nCRITICAL RULES:\n1. If 2+ leads match a name/company, use action type clarify — never guess.\n2. If message contains [CONFIRMED LEAD: ID:X] use that exact lead.\n3. For deal terms: ONLY use Split Split if the person explicitly says split payment, deposit only, or will pay rest later. Full Pay means the entire amount was paid upfront. A partial amount paid (like 2000 deposit on a 5000 deal) = Split Split. Record the TOTAL deal value as dealAmount, not the deposit amount.\n4. Commission is always 7% of the TOTAL deal value.\n5. If the user asks a QUESTION about their performance (calls made, meetings booked, deals won, who they've contacted), USE the RECENT ACTIVITIES and WON DEALS data above to answer specifically. Count, summarise, or filter as needed. Set actions to [] (no log needed for questions).\n6. The current week starts last Monday. Last week is the 7 days before that. This month equals activities where date starts with current YYYY-MM.\n\nReply ONLY valid JSON:\n{reply: message, actions: [{type: log_activity or update_stage or create_lead or clarify or none, data: {}}]}\n\nlog_activity: {leadId, leadName, activityType, outcome, scriptId, cadenceDay, note}\nupdate_stage: {leadId, newStage, dealAmount, dealTerms, depositAmount} — newStage options: Prospecting Contacted Meeting Booked Proposal Sent Won Lost. dealAmount = TOTAL deal value. dealTerms = Full Pay or Split Split. depositAmount = amount paid now if split.\ncreate_lead: {name, company, role, phone, email, seg, source, stage: Prospecting}\nclarify: {matches: [{id, name, company, seg, stage}], originalText}\n\nWhen a deal is Won always show: total deal value, terms, deposit paid if applicable, and commission (7% of total).";
+    const sys="You are an AI sales logger AND assistant for Life Like Media, a Belfast video agency. Standard deal is £6,900 but deals can vary.\n\nLEADS:\n"+lctx+"\n\nACTIVE SCRIPTS:\n"+sctx+"\n\nRECENT ACTIVITIES (last 30 days, format: date|type|outcome|lead):\n"+actx+"\n\nWON DEALS:\n"+dealCtx+"\n\nTODAY: "+TODAY()+"\n\nCRITICAL RULES:\n1. FIRST: Decide if this is a QUESTION or a REPORT.\n   - Question (asks about data, count, list, who, when, how many): Answer it using RECENT ACTIVITIES and WON DEALS data above. Put answer in reply field, set actions=[]. Do NOT log anything.\n   - Report (says what just happened, e.g. called X, booked Y, won Z): Log it via actions array.\n2. For questions like how many calls last week: filter RECENT ACTIVITIES by date range (last week = 7 days before this week) and type contains Call. Count them. Reply with the actual number.\n3. The user IS Sam — when they say I or me they mean themselves. Activity data IS Sam's activity.\n4. If 2+ leads match a name/company on a report, use action type clarify — never guess.\n5. For deal terms: Split Split if deposit/partial payment mentioned, otherwise Full Pay.\n6. Commission is 7% of TOTAL deal value.\n7. Today is included as TODAY above. This week = Mon-Sun including today. Last week = the 7 days before this Monday. This month = current YYYY-MM.\n\nReply ONLY valid JSON:\n{reply: message, actions: [{type: log_activity or update_stage or create_lead or clarify or none, data: {}}]}\n\nlog_activity: {leadId, leadName, activityType, outcome, scriptId, cadenceDay, note}\nupdate_stage: {leadId, newStage, dealAmount, dealTerms, depositAmount} — newStage options: Prospecting Contacted Meeting Booked Proposal Sent Won Lost. dealAmount = TOTAL deal value. dealTerms = Full Pay or Split Split. depositAmount = amount paid now if split.\ncreate_lead: {name, company, role, phone, email, seg, source, stage: Prospecting}\nclarify: {matches: [{id, name, company, seg, stage}], originalText}\n\nWhen a deal is Won always show: total deal value, terms, deposit paid if applicable, and commission (7% of total).";
     const history=[...(db.chatHistory||[]).slice(-8),{role:"user",content:t}];
     fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:sys,messages:history})})
     .then(r=>r.json())
@@ -2228,7 +2348,8 @@ function ImportModal({db,upd,toast,onClose}){
         return "";
       }
 
-      const result=rows.map(row=>{
+      // First pass: clean each row
+      const cleaned=rows.map(row=>{
         const m={};
         Object.entries(map).forEach(([col,field])=>{
           const val=(row[col]||"").trim();
@@ -2239,20 +2360,50 @@ function ImportModal({db,upd,toast,onClose}){
           else m[field]=val;
         });
         if(m._f||m._l){m.name=[m._f,m._l].filter(Boolean).join(" ");delete m._f;delete m._l;}
-
-        // Clean name — title case from all caps or all lowercase
         if(m.name) m.name=m.name.toLowerCase().split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
-        // If name still blank, try email
         if(!m.name&&m.email) m.name=nameFromEmail(m.email);
-
-        // Clean company — remove hyphens, leading dots, title case
         if(m.company){
           m.company=m.company.replace(/^[\.\-_]+/,"").replace(/-/g," ").split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ").trim();
         }
-
-        // Normalise phone
         if(m.phone) m.phone=normalisePhone(m.phone);
         if(!m.source) m.source="Scraped list";
+        return m;
+      }).filter(r=>r.name||r.company||r.email||r.phone);
+
+      // Second pass: GROUP BY COMPANY
+      // Each company becomes one lead with multiple contacts
+      const byCompanyKey={};
+      cleaned.forEach(r=>{
+        const ck=(r.company||"").toLowerCase().trim();
+        if(!ck){
+          // No company — treat as unique lead by random key
+          byCompanyKey["__nocompany_"+Math.random()]=r;
+          return;
+        }
+        if(!byCompanyKey[ck]){
+          byCompanyKey[ck]={...r,contacts:[]};
+        } else {
+          // Add as additional contact to existing company
+          const existing=byCompanyKey[ck];
+          // Merge company-level fields if missing on existing
+          ["address","postcode","website","industry","location"].forEach(f=>{
+            if(!existing[f]&&r[f]) existing[f]=r[f];
+          });
+          // Add contact info if there's a name/email/phone
+          if(r.name||r.email||r.phone){
+            existing.contacts.push({
+              name:r.name||"",
+              role:r.role||"",
+              phone:r.phone||"",
+              email:r.email||"",
+              linkedin:r.linkedin||""
+            });
+          }
+        }
+      });
+
+      // Third pass: build final result with dedup detection
+      const result=Object.values(byCompanyKey).map(m=>{
         m.seg=scoreSeg(m);
         const hasData=!!(m.name||m.company||m.email||m.phone);
         const k=(m.name||"").toLowerCase()+"|"+(m.company||"").toLowerCase();
@@ -2274,7 +2425,7 @@ function ImportModal({db,upd,toast,onClose}){
     const updates=proc.filter(r=>r._update);
     const a=newLeads.filter(r=>r.seg==="A").length,b=newLeads.filter(r=>r.seg==="B").length,c=newLeads.filter(r=>r.seg==="C").length;
 
-    // INSERT NEW LEADS
+    // INSERT NEW LEADS (now with contacts array)
     const rows=newLeads.map(r=>({
       name:r.name||"",company:r.company||"",role:r.role||"",
       phone:r.phone||"",email:r.email||"",linkedin:r.linkedin||"",
@@ -2282,7 +2433,8 @@ function ImportModal({db,upd,toast,onClose}){
       website:r.website||"",instagram:"",facebook:"",twitter:"",
       industry:r.industry||"",revenue:r.revenue||"",employees:r.employees||"",
       seg:r.seg,source:r.source||"Scraped list",owner:"",
-      stage:"Prospecting",notes:""
+      stage:"Prospecting",notes:"",
+      contacts:r.contacts||[]
     }));
     let inserted=[];
     for(let i=0;i<rows.length;i+=50){
@@ -2292,7 +2444,7 @@ function ImportModal({db,upd,toast,onClose}){
       if(data) inserted=[...inserted,...data];
     }
 
-    // UPDATE EXISTING — only fill empty fields
+    // UPDATE EXISTING — fill empty fields AND merge contacts
     let updatedCount=0;
     const updatedLocal=[];
     for(const u of updates){
@@ -2302,6 +2454,26 @@ function ImportModal({db,upd,toast,onClose}){
         const newVal=u[f]||(f==="address"?u.location:"")||"";
         if(!existing[f]&&newVal){patch[f]=newVal;}
       });
+      // Merge contacts array - dedup on email or phone or name
+      const existingContacts=existing.contacts||[];
+      const incomingContacts=u.contacts||[];
+      const mergedContacts=[...existingContacts];
+      const seenKeys=new Set(existingContacts.map(c=>(c.email||c.phone||c.name||"").toLowerCase()));
+      // Also add primary contact info as a contact if not already listed
+      if(u.name&&u.name!==existing.name){
+        const k=(u.email||u.phone||u.name||"").toLowerCase();
+        if(!seenKeys.has(k)){
+          mergedContacts.push({name:u.name,role:u.role||"",phone:u.phone||"",email:u.email||"",linkedin:u.linkedin||""});
+          seenKeys.add(k);
+        }
+      }
+      incomingContacts.forEach(c=>{
+        const k=(c.email||c.phone||c.name||"").toLowerCase();
+        if(k&&!seenKeys.has(k)){mergedContacts.push(c);seenKeys.add(k);}
+      });
+      if(mergedContacts.length>existingContacts.length){
+        patch.contacts=mergedContacts;
+      }
       if(Object.keys(patch).length>0){
         const {error}=await supa.from("leads").update(patch).eq("id",existing.id);
         if(!error){updatedCount++;updatedLocal.push({...existing,...patch});}
@@ -2322,7 +2494,8 @@ function ImportModal({db,upd,toast,onClose}){
             instagram:"",facebook:"",twitter:"",industry:r.industry||"",
             revenue:r.revenue||"",employees:r.employees||"",seg:r.seg||"C",
             source:r.source||"Scraped list",owner:"",stage:"Prospecting",
-            createdAt:r.created_at?.split("T")[0]||TODAY(),notes:""
+            createdAt:r.created_at?.split("T")[0]||TODAY(),notes:"",
+            contacts:Array.isArray(r.contacts)?r.contacts:[]
           }))
         ]
       };
